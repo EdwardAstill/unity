@@ -70,6 +70,19 @@ def conv(value: float, from_unit: str, to_unit: str) -> float:
     factor = c_from.scale / c_to.scale
     return value * factor
 
+def valid(from_unit: str, to_unit: str) -> bool:
+    """
+    Checks if a conversion between two units is valid (i.e., they are dimensionally equivalent).
+    Returns True if valid, False otherwise.
+    Also returns False if units are malformed or unknown.
+    """
+    try:
+        c_from = parse_unit(from_unit)
+        c_to = parse_unit(to_unit)
+        return c_from.dims == c_to.dims
+    except ValueError:
+        return False
+
 class Quantity:
     def __init__(self, value: float, unit: str):
         self.value = value

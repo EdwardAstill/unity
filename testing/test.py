@@ -5,9 +5,28 @@ import os
 # Ensure we can import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from unity.main import conv, Quantity, parse_unit
+from unity.main import conv, Quantity, parse_unit, valid
 
 class TestUnitConversion(unittest.TestCase):
+
+    # --- 6. Valid Function Tests ---
+    
+    def test_valid_function(self):
+        # Valid cases
+        self.assertTrue(valid("kg", "mg"))
+        self.assertTrue(valid("N", "kg m s-2"))
+        self.assertTrue(valid("Pa", "N m-2"))
+        
+        # Invalid cases (Dimension mismatch)
+        self.assertFalse(valid("kg", "m"))
+        self.assertFalse(valid("N", "Pa"))
+        
+        # Invalid cases (Unknown unit)
+        self.assertFalse(valid("foo", "bar"))
+        self.assertFalse(valid("kg", "bar"))
+        
+        # Invalid cases (Malformed)
+        self.assertFalse(valid("2m", "m"))
 
     # --- 1. Simple Unit Conversions ---
     
