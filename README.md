@@ -19,6 +19,15 @@ from main import conv
 # Convert 100 mg to kg
 result = conv(100, "mg", "kg")
 print(result)  # 0.0001
+
+```
+### Validation
+```python
+from main import valid
+
+# Validate 100 mg to kg
+result = valid(100, "mg", "kg")
+print(result)  # True
 ```
 
 ### Quantity Object

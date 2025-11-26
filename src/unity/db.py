@@ -22,6 +22,7 @@ UNIT_DB = {
     # Derived / Compound definitions
     # N = kg * m / s^2
     "N":   {"scale": 1.0,    "dims": {"M": 1, "L": 1, "T": -2}},
+    "kN":  {"scale": 1e3,    "dims": {"M": 1, "L": 1, "T": -2}},
     # Pa = N / m^2 = kg / (m * s^2)
     "Pa":  {"scale": 1.0,    "dims": {"M": 1, "L": -1, "T": -2}},
     "kPa": {"scale": 1e3,    "dims": {"M": 1, "L": -1, "T": -2}},
