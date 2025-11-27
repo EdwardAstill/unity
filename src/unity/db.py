@@ -58,7 +58,7 @@ UNIT_DB = {
 
     
     # Acceleration (named units only)
-    "g":   {"scale": 9.80665, "dims": {"L": 1, "T": -2}},  # standard gravity
+    "gn":   {"scale": 9.80665, "dims": {"L": 1, "T": -2}},  # standard gravity
     
     # Energy/Work: M * L^2 / T^2
     "J":   {"scale": 1.0,    "dims": {"M": 1, "L": 2, "T": -2}},  # joule
