@@ -1,4 +1,5 @@
 from typing import Union
+import re
 from .core import conv, valid, invert_unit
 
 class Quantity:
@@ -70,3 +71,51 @@ class Quantity:
             inverted_unit = invert_unit(self.unit)
             return Quantity(new_value, inverted_unit)
         return NotImplemented
+
+    def format(self,num_format: str = "", style: str = "typst") -> str:
+        """
+        Format the quantity according to specific magnitude rules.
+        """
+        if num_format is "":
+            abs_val = abs(self.value)
+            if abs_val == 0.0:
+                fmt = "{:.0f}"
+            elif abs_val < 0.1 or abs_val > 9999.9:
+                fmt = "{:.2E}"
+            elif abs_val < 10:
+                fmt = "{:.3f}"
+            elif abs_val < 100:
+                fmt = "{:.2f}"
+            elif abs_val < 1000:
+                fmt = "{:.1f}"
+            else:
+                # Covers 1000 <= abs_val <= 9999.9
+                fmt = "{:.0f}"
+        else:
+            fmt = f"{{:{num_format}}}"
+            
+        
+            
+        formatted_num = fmt.format(self.value)
+        
+        # Unit formatting logic for typst
+        parts = self.unit.split()
+        formatted_parts = []
+        for part in parts:
+            match = re.match(r"^([a-zA-Z]+)([-+]?\d+)?$", part)
+            if match:
+                base = match.group(1)
+                exp = match.group(2)
+                if exp:
+                    formatted_parts.append(f'"{base}"^({exp})')
+                else:
+                    formatted_parts.append(f'"{base}"')
+            else:
+                formatted_parts.append(f'"{part}"')
+                
+        format_unit = " ".join(formatted_parts)
+        
+        if format_unit:
+            return f"$ {formatted_num} space {format_unit} $"
+        else:
+            return f"$ {formatted_num} $"
