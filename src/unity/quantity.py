@@ -76,7 +76,7 @@ class Quantity:
         """
         Format the quantity according to specific magnitude rules.
         """
-        if num_format is "":
+        if num_format == "":
             abs_val = abs(self.value)
             if abs_val == 0.0:
                 fmt = "{:.0f}"
@@ -107,15 +107,15 @@ class Quantity:
                 base = match.group(1)
                 exp = match.group(2)
                 if exp:
-                    formatted_parts.append(f'"{base}"^({exp})')
+                    formatted_parts.append(f'{base}#super[{exp}]')
                 else:
-                    formatted_parts.append(f'"{base}"')
+                    formatted_parts.append(f'{base}')
             else:
-                formatted_parts.append(f'"{part}"')
+                formatted_parts.append(f'{part}')
                 
-        format_unit = " ".join(formatted_parts)
+        format_unit = " \\u{22C5} ".join(formatted_parts)
         
         if format_unit:
-            return f"$ {formatted_num} space {format_unit} $"
+            return f"{formatted_num} \\u{{22C5}} {format_unit}"
         else:
-            return f"$ {formatted_num} $"
+            return f"{formatted_num}"
