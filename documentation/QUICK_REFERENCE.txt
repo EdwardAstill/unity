@@ -1,0 +1,276 @@
+================================================================================
+                    UNITY QUICK REFERENCE CARD
+================================================================================
+
+IMPORTS
+-------
+from unity.quantity import Quantity
+from unity.core import conv, valid
+
+CREATING QUANTITIES
+-------------------
+scalar = Quantity(10, "m")                    # Single value
+array = Quantity([1, 2, 3], "m")             # From list
+array = Quantity(np.array([1, 2, 3]), "m")   # From numpy array
+matrix = Quantity([[1, 2], [3, 4]], "m")     # 2D array
+
+UNIT CONVERSION
+---------------
+q_new = Quantity(5, "km").to("m")            # Convert unit
+distances = Quantity([1, 2, 3], "km").to("m")  # Array conversion
+
+CHECKING UNIT COMPATIBILITY
+----------------------------
+valid("m", "km")                              # True (compatible)
+valid("m", "s")                               # False (incompatible)
+
+ARITHMETIC OPERATIONS
+---------------------
+Quantity(10, "m") + Quantity(5, "m")          # 15.0 m
+Quantity(10, "m") - Quantity(3, "m")          # 7.0 m
+Quantity(10, "m") * Quantity(2, "s")          # 20.0 m s
+Quantity(100, "m") / Quantity(10, "s")        # 10.0 m s-1
+Quantity(10, "m") * 2                         # 20 m
+Quantity([1, 2, 3], "m") / 2                  # [0.5, 1, 1.5] m
+
+ELEMENT-WISE OPERATIONS (Arrays)
+---------------------------------
+a = Quantity([1, 2, 3], "m")
+b = Quantity([4, 5, 6], "m")
+a + b                                         # [5, 7, 9] m
+a * b                                         # [4, 10, 18] m m
+
+BROADCASTING (Scalar + Array)
+-----------------------------
+scalar = Quantity(100, "m")
+array = Quantity([1, 2, 3], "m")
+scalar + array                                # [101, 102, 103] m
+scalar * array                                # [100, 200, 300] m
+
+ACCESSING ARRAY VALUES
+----------------------
+arr = Quantity([10, 20, 30, 40, 50], "m s-1")
+
+arr[0]                                        # 10.0 m s-1 (scalar)
+arr[-1]                                       # 50.0 m s-1 (scalar)
+arr[1:4]                                      # [20, 30, 40] m s-1 (array)
+arr[::2]                                      # [10, 30, 50] m s-1 (array)
+arr[::-1]                                     # [50, 40, 30, 20, 10] m s-1 (reversed)
+
+FORMATTING OUTPUT
+-----------------
+q = Quantity(5.123, "m")
+q.format()                                    # "5.123 m" (auto)
+q.format(".1f")                               # "5.1 m" (custom)
+
+arr = Quantity([0.001, 1.5, 25, 10000], "m")
+arr.format()                                  # "[1.00E-03, 1.500, 25.00, 1.00E+04] m"
+
+STRING REPRESENTATIONS
+----------------------
+str(Quantity(5.0, "m"))                       # "5.0 m"
+repr(Quantity(5.0, "m"))                      # "Quantity(5.0, 'm')"
+
+ACCESSING UNDERLYING VALUES
+----------------------------
+q = Quantity([1, 2, 3], "m")
+q.value                                       # numpy array [1, 2, 3]
+q.unit                                        # "m"
+type(q.value)                                 # <class 'numpy.ndarray'>
+
+COMMON UNITS
+------------
+Length:     m, mm, cm, km, in, ft, yd, mi
+Mass:       kg, g, mg, t, lb, oz
+Time:       s, min, h, d, y
+Force:      N (Newton) = kg m s-2
+Pressure:   Pa (Pascal) = kg m-1 s-2
+Energy:     J (Joule) = kg m2 s-2
+Power:      W (Watt) = kg m2 s-3
+Frequency:  Hz (Hertz) = s-1
+
+COMPOUND UNITS SYNTAX
+---------------------
+m2          → square meters
+m3          → cubic meters
+m s-1       → meters per second
+kg m s-2    → kilogram meter per second squared (force)
+kg m2 s-2   → energy (Joule)
+kg m-1 s-2  → pressure (Pascal)
+
+USING NUMPY WITH QUANTITIES
+----------------------------
+import numpy as np
+arr = Quantity([1, 2, 3, 4, 5], "m")
+mean = np.mean(arr.value)                     # 3.0
+std = np.std(arr.value)                       # 1.414...
+max_val = np.max(arr.value)                   # 5
+min_val = np.min(arr.value)                   # 1
+
+FILTERING ARRAYS
+----------------
+measurements = Quantity([100, 150, 120, 180, 200], "m")
+threshold = 150
+high = measurements.value > threshold
+filtered = Quantity(measurements.value[high], "m")  # [150, 180, 200] m
+
+ERROR HANDLING
+--------------
+try:
+    result = Quantity(100, "m") + Quantity(10, "s")
+except ValueError as e:
+    print(f"Incompatible units: {e}")
+
+try:
+    q = Quantity(10, "m")
+    val = q[0]
+except TypeError as e:
+    print(f"Cannot index scalar: {e}")
+
+WORKFLOW EXAMPLES
+-----------------
+
+Example 1: Speed from Distance and Time
+    distance = Quantity(100, "m")
+    time = Quantity(10, "s")
+    speed = distance / time              # 10.0 m s-1
+
+Example 2: Kinetic Energy
+    mass = Quantity(2, "kg")
+    velocity = Quantity(10, "m s-1")
+    KE = 0.5 * mass * velocity**2        # 100.0 kg m2 s-2 (Joules)
+
+Example 3: Batch Conversion
+    distances_km = Quantity([1, 5, 10], "km")
+    distances_m = distances_km.to("m")   # [1000, 5000, 10000] m
+
+Example 4: Array Calculation
+    forces = Quantity([10, 20, 30], "N")
+    distances = Quantity([2, 3, 5], "m")
+    work = forces * distances            # [20, 60, 150] N m
+
+DOCUMENTATION NAVIGATION
+------------------------
+GUIDE.md            → Start here for basics
+API_REFERENCE.md    → Quick API lookup
+reference.md        → Detailed documentation
+ARRAYS.md           → Array operations guide
+DOCUMENTATION.md    → Master documentation index
+
+================================================================================
+TYPE HINTS
+================================================================================
+
+from typing import Union
+import numpy as np
+from unity.quantity import Quantity
+
+def calculate_speed(
+    distance: Quantity,
+    time: Quantity
+) -> Quantity:
+    """Calculate speed from distance and time."""
+    return distance / time
+
+def convert_distance(
+    value: Union[float, np.ndarray],
+    unit: str
+) -> Quantity:
+    """Convert distance to meters."""
+    return Quantity(value, unit).to("m")
+
+================================================================================
+PROPERTIES AND ATTRIBUTES
+================================================================================
+
+Quantity.value      → Underlying numeric value (float or np.ndarray)
+Quantity.unit       → Unit string (e.g., "m", "kg m s-2")
+
+================================================================================
+METHODS
+================================================================================
+
+to(target_unit)     → Convert to different unit
+format(fmt, style)  → Format as string
+__getitem__(key)    → Access array elements/slices
+__add__(other)      → Addition (+)
+__sub__(other)      → Subtraction (-)
+__mul__(other)      → Multiplication (*)
+__truediv__(other)  → Division (/)
+__rmul__(other)     → Right multiplication
+__rtruediv__(other) → Right division
+
+================================================================================
+COMMON ERRORS AND SOLUTIONS
+================================================================================
+
+Error: "Incompatible units for addition"
+→ Make sure both quantities have compatible units
+  Fix: distance + distance works, but distance + time fails
+
+Error: "Unknown unit"
+→ Unit is not in the database
+  Fix: Check spelling, use supported units only
+
+Error: "Indexing is only supported for array quantities"
+→ Trying to index a scalar quantity
+  Fix: Only arrays support indexing, scalar[0] fails
+
+Error: "Incompatible units"
+→ Units have different dimensions
+  Fix: Can only convert between compatible units
+
+================================================================================
+PERFORMANCE TIPS
+================================================================================
+
+1. Use arrays for bulk operations (faster than loops)
+   Fast:  speeds = Quantity([1,2,3,4,5], "m s-1") * 2
+   Slow:  speeds = [Quantity(i, "m s-1") * 2 for i in [1,2,3,4,5]]
+
+2. Convert once, operate multiple times
+   Fast:  arr_m = arr_km.to("m"); result = arr_m * 2
+   Slow:  result = [(x.to("m") * 2) for x in arr_km]
+
+3. Use numpy functions on .value for statistics
+   Fast:  mean = np.mean(arr.value)
+   Slow:  mean = sum(arr.value) / len(arr.value)
+
+4. Avoid repeated array-to-list conversions
+   Fast:  Use numpy arrays directly
+   Slow:  Convert back and forth between lists/arrays
+
+================================================================================
+USEFUL PATTERNS
+================================================================================
+
+Calculate moving average:
+    import numpy as np
+    data = Quantity([1, 2, 3, 4, 5], "m")
+    kernel = np.ones(3) / 3
+    result = Quantity(np.convolve(data.value, kernel, mode='valid'), "m")
+
+Statistical summary:
+    mean = np.mean(arr.value)
+    median = np.median(arr.value)
+    std = np.std(arr.value)
+    print(f"Mean: {mean} {arr.unit}, Std: {std} {arr.unit}")
+
+Conditional filtering:
+    measurements = Quantity([100, 150, 120, 180], "m")
+    threshold = Quantity(140, "m")
+    valid = Quantity(measurements.value[measurements.value > threshold.value], "m")
+
+Batch processing:
+    input_data = Quantity([1, 2, 3, 4, 5], "km")
+    output_data = input_data.to("m") * 2
+
+================================================================================
+
+For more information, see:
+  • GUIDE.md - Comprehensive tutorial
+  • API_REFERENCE.md - Complete API reference
+  • ARRAYS.md - Array operations guide
+
+================================================================================
+

@@ -49,6 +49,8 @@ UNIT_DB = {
     # Pressure: Pa = N / m^2 = kg / (m * s^2)
     "Pa":  {"scale": 1.0,    "dims": {"M": 1, "L": -1, "T": -2}},
     "kPa": {"scale": 1e3,    "dims": {"M": 1, "L": -1, "T": -2}},
+    "MPa": {"scale": 1e6,    "dims": {"M": 1, "L": -1, "T": -2}},
+    "GPa": {"scale": 1e9,    "dims": {"M": 1, "L": -1, "T": -2}},
     "psi": {"scale": 6894.76, "dims": {"M": 1, "L": -1, "T": -2}},  # pounds per square inch
     
     # Volume (named units only)

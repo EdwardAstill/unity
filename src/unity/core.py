@@ -1,6 +1,7 @@
 import re
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, Union
+import numpy as np
 from .db import UNIT_DB
 
 class CanonicalUnit:
@@ -54,9 +55,10 @@ def parse_unit(unit_str: str) -> CanonicalUnit:
             
     return CanonicalUnit(total_scale, dict(total_dims))
 
-def conv(value: float, from_unit: str, to_unit: str) -> float:
+def conv(value: Union[float, np.ndarray], from_unit: str, to_unit: str) -> Union[float, np.ndarray]:
     """
     Converts a value from one unit to another.
+    Supports both scalar values and numpy arrays.
     """
     # 1. Parse both to canonical form
     c_from = parse_unit(from_unit)
