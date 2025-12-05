@@ -45,6 +45,7 @@ UNIT_DB = {
     "N":   {"scale": 1.0,    "dims": {"M": 1, "L": 1, "T": -2}},
     "kN":  {"scale": 1e3,    "dims": {"M": 1, "L": 1, "T": -2}},
     "lbf": {"scale": 4.44822, "dims": {"M": 1, "L": 1, "T": -2}},  # pound-force
+    "kip": {"scale": 4448.22, "dims": {"M": 1, "L": 1, "T": -2}},  # kip (1000 lbf)
     
     # Pressure: Pa = N / m^2 = kg / (m * s^2)
     "Pa":  {"scale": 1.0,    "dims": {"M": 1, "L": -1, "T": -2}},
@@ -52,6 +53,7 @@ UNIT_DB = {
     "MPa": {"scale": 1e6,    "dims": {"M": 1, "L": -1, "T": -2}},
     "GPa": {"scale": 1e9,    "dims": {"M": 1, "L": -1, "T": -2}},
     "psi": {"scale": 6894.76, "dims": {"M": 1, "L": -1, "T": -2}},  # pounds per square inch
+    "ksi": {"scale": 6894760.0, "dims": {"M": 1, "L": -1, "T": -2}},  # kips per square inch
     
     # Volume (named units only)
     "L":   {"scale": 1e-3,   "dims": {"L": 3}},  # liter
