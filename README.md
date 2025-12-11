@@ -1,4 +1,4 @@
-# Unity - Unit Conversion System
+﻿# Unity - Unit Conversion System
 
 A robust and flexible unit conversion library with support for scalar values, lists, and numpy arrays. Designed for scientific and engineering calculations with automatic dimensional analysis.
 
@@ -166,3 +166,4 @@ Run the demo scripts:
 python examples/demo.py              # Basic examples
 python examples/array_demo.py        # Array examples
 ```
+
