@@ -66,6 +66,12 @@ q.format(".1f")                               # "5.1 m" (custom)
 arr = Quantity([0.001, 1.5, 25, 10000], "m")
 arr.format()                                  # "[1.00E-03, 1.500, 25.00, 1.00E+04] m"
 
+Typst unit exponents
+--------------------
+Quantity(1, "mm2").format()                   # "1.000 mm#super[2]"
+Quantity(1, "mm^2").format()                  # "1.000 mm#super[2]"
+Quantity(1, "mm**2").format()                 # "1.000 mm#super[2]"
+
 STRING REPRESENTATIONS
 ----------------------
 str(Quantity(5.0, "m"))                       # "5.0 m"

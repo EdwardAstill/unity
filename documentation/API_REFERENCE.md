@@ -158,6 +158,13 @@ Format as a formatted string.
 
 **Returns**: Formatted string
 
+**Typst unit formatting**:
+- Units are rendered for Typst math mode.
+- Multiplication between unit tokens is shown as `\\u{22C5}` (middle dot).
+- Simple exponents are rendered as `#super[...]`:
+  - `"mm2"`, `"mm^2"`, and `"mm**2"` all render as `mm#super[2]`.
+  - `"m-2"` renders as `m#super[-2]`.
+
 **Format Rules** (when `num_format=""`):
 - Value = 0: `"0"`
 - 0 < \|value\| < 0.1 or \|value\| > 9999.9: Scientific (`.2E`)
@@ -172,6 +179,7 @@ Quantity(5.0, "m").format()              # "5.000 m"
 Quantity(0.001, "m").format()            # "1.00E-03 m"
 Quantity([1.5, 25, 1234], "m").format()  # "[1.500, 25.00, 1234] m"
 Quantity(5.123, "m").format(".1f")       # "5.1 m"
+Quantity(1, "mm^2").format()             # "1.000 mm#super[2]"
 ```
 
 ---

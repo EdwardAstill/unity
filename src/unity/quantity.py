@@ -3,6 +3,38 @@ import re
 import numpy as np
 from .core import conv, valid, invert_unit
 
+def format_unit_typst(unit: str) -> str:
+    """
+    Convert a unit string into Typst-friendly output.
+
+    Examples:
+    - "mm2"  -> "mm#super[2]"
+    - "mm^2" -> "mm#super[2]"
+    - "mm**2" -> "mm#super[2]"
+    - "N m"  -> "N \\u{22C5} m"
+
+    Notes:
+    - This is token-based (splits on whitespace). Tokens that don't match the supported
+      patterns are passed through unchanged.
+    """
+    parts = unit.split()
+    formatted_parts: list[str] = []
+    for part in parts:
+        # Accept both "mm2" and caret/pythonic styles like "mm^2" / "mm**2".
+        # If the token doesn't match, we leave it unchanged (e.g. "kN/m^2" or already-formatted "mm#super[2]").
+        match = re.match(r"^([a-zA-Z]+)(?:(?:\^)|(?:\*\*))?([-+]?\d+)?$", part)
+        if match:
+            base = match.group(1)
+            exp = match.group(2)
+            if exp:
+                formatted_parts.append(f"{base}#super[{exp}]")
+            else:
+                formatted_parts.append(f"{base}")
+        else:
+            formatted_parts.append(f"{part}")
+
+    return " \\u{22C5} ".join(formatted_parts)
+
 class Quantity:
     def __init__(self, value: Union[float, int, list, np.ndarray], unit: str):
         # Convert lists to numpy arrays for consistent handling
@@ -167,21 +199,7 @@ class Quantity:
             formatted_num = fmt.format(self.value)
         
         # Unit formatting logic for typst
-        parts = self.unit.split()
-        formatted_parts = []
-        for part in parts:
-            match = re.match(r"^([a-zA-Z]+)([-+]?\d+)?$", part)
-            if match:
-                base = match.group(1)
-                exp = match.group(2)
-                if exp:
-                    formatted_parts.append(f'{base}#super[{exp}]')
-                else:
-                    formatted_parts.append(f'{base}')
-            else:
-                formatted_parts.append(f'{part}')
-                
-        format_unit = " \\u{22C5} ".join(formatted_parts)
+        format_unit = format_unit_typst(self.unit)
         
         if format_unit:
             return f"{formatted_num} {format_unit}"
