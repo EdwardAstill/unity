@@ -356,6 +356,7 @@ print(q.unit)  # "m"
 | **Mass** | kg, g, mg, t, lb, oz |
 | **Length** | m, mm, cm, km, in, ft, yd, mi |
 | **Time** | s, min, h, d, y |
+| **Angle** | rad, deg, rev |
 
 ### Derived Units
 
@@ -366,6 +367,7 @@ print(q.unit)  # "m"
 | J (Joule) | N m = kg m2 s-2 |
 | W (Watt) | J s-1 = kg m2 s-3 |
 | Hz (Hertz) | s-1 |
+| rpm | rev min-1 |
 
 ### Compound Unit Syntax
 

@@ -31,6 +31,14 @@ UNIT_DB = {
     "d":  {"scale": 86400.0, "dims": {"T": 1}},
     "y":  {"scale": 31536000.0, "dims": {"T": 1}},
 
+    # Angle (Base: rad)
+    "rad": {"scale": 1.0,                  "dims": {"A": 1}},
+    "deg": {"scale": 0.017453292519943295, "dims": {"A": 1}}, # pi / 180
+    "rev": {"scale": 6.283185307179586,    "dims": {"A": 1}}, # 2 * pi
+
+    # Angular Velocity
+    "rpm": {"scale": 0.104719755, "dims": {"A": 1, "T": -1}}, # rev/min
+
     # Frequency (Base: Hz)
     "Hz": {"scale": 1.0, "dims": {"T": -1}},
     "kHz": {"scale": 1e3, "dims": {"T": -1}},
