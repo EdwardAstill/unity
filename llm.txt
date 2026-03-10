@@ -1,0 +1,562 @@
+================================================================================
+                         UNITY PROJECT - LLM CONTEXT
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+
+Project Name: Unity
+Version: 0.1.0
+Purpose: A robust, flexible unit conversion library for scientific and 
+         engineering calculations with automatic dimensional analysis.
+Language: Python 3.13+
+Dependencies: numpy>=1.24.0
+
+PROBLEM STATEMENT
+The project solves the need for:
+- Flexible unit conversion with dimensional validation
+- Support for scalar values, lists, and numpy arrays with same interface
+- Automatic dimensional analysis to prevent unit mismatch errors
+- Compound/derived unit support (e.g., "kg m s-2" for Newtons)
+- Broadcasting operations between scalars and arrays
+- Typst-friendly formatting for scientific documents
+
+================================================================================
+CORE ARCHITECTURE
+================================================================================
+
+The library uses a canonical representation system:
+
+1. UNIT DATABASE (db.py)
+   - Central repository of all known units
+   - Each unit defined with: scale (relative to base SI), dimensions
+   - Supported dimension types: M (Mass), L (Length), T (Time)
+   - Examples: "m" = {scale: 1.0, dims: {L: 1}}
+             "kg" = {scale: 1.0, dims: {M: 1}}
+             "mm" = {scale: 0.001, dims: {L: 1}}
+
+2. CORE MODULE (core.py)
+   Functions for unit manipulation and conversion:
+   - parse_unit(unit_str): Parse unit string to canonical form
+   - conv(value, from_unit, to_unit): Convert values between units
+   - valid(from_unit, to_unit): Check dimensional compatibility
+   - invert_unit(unit_str): Invert unit for division operations
+   - dims_to_si_unit(dims): Convert dimension dictionary to SI base unit string
+   
+   CanonicalUnit class:
+   - Represents parsed unit with scale and dimension dict
+   - Enables comparison and arithmetic on unit dimensions
+
+3. QUANTITY CLASS (quantity.py)
+   Main user-facing class for quantities with units:
+   - Constructor: Quantity(value, unit)
+   - Stores: value (float, int, list, or np.ndarray) and unit (str)
+   - Methods: to(), to_si(), format(), arithmetic operators, indexing
+   - Automatic broadcasting between scalars and arrays
+
+================================================================================
+SUPPORTED UNITS
+================================================================================
+
+Categories:
+- Mass: kg, g, mg, t, lb, oz, tn
+- Length: m, mm, cm, km, in, ft, yd, mi
+- Time: s, min, h, d, y
+- Angle: rad, deg, rev, rpm
+- Derived: N (Force), Pa/kPa (Pressure), J (Energy), W (Power), Hz (Frequency)
+- Compound: Any combination (e.g., "kg m s-2", "m s-1", "kPa m2")
+
+Exponent syntax:
+- Integer suffix: "m2", "s-1", "kg3"
+- Caret notation: "m^2", "s^-1"
+- Python notation: "m**2", "s**-1"
+
+================================================================================
+CORE API REFERENCE
+================================================================================
+
+IMPORTS
+from unity.quantity import Quantity
+from unity.core import conv, valid, parse_unit, invert_unit, dims_to_si_unit
+
+CREATING QUANTITIES
+Quantity(10, "m")                    # Scalar
+Quantity([1, 2, 3], "m")             # Array from list
+Quantity(np.array([1, 2, 3]), "m")   # Array from numpy
+Quantity([[1, 2], [3, 4]], "m")      # 2D array
+
+UNIT CONVERSION
+q = Quantity(5, "km")
+q.to("m")                            # Returns Quantity(5000, "m")
+
+SI BASE UNIT CONVERSION
+Quantity(1, "km").to_si()             # Returns Quantity(1000.0, "m")
+Quantity(1000, "mm").to_si()          # Returns Quantity(1.0, "m")
+Quantity(100, "N").to_si()            # Returns Quantity(100.0, "m kg s-2")
+Quantity(60, "min").to_si()           # Returns Quantity(3600.0, "s")
+Quantity([1, 2, 3], "km").to_si()     # Returns Quantity([1000, 2000, 3000], "m")
+
+# Compare values across different units
+q1 = Quantity(1, "km").to_si()
+q2 = Quantity(1000, "m").to_si()
+print(q1.value == q2.value)           # True (both are 1000.0 m)
+
+VALIDATION
+valid("m", "km")                     # True (compatible)
+valid("m", "s")                      # False (incompatible)
+
+ARITHMETIC OPERATIONS
+Quantity(10, "m") + Quantity(5, "m") → 15.0 m
+Quantity(10, "m") - Quantity(3, "m") → 7.0 m
+Quantity(10, "m") * Quantity(2, "s") → 20.0 m s
+Quantity(100, "m") / Quantity(10, "s") → 10.0 m s-1
+Quantity(10, "m") * 2                → 20.0 m
+
+ARRAY OPERATIONS
+Element-wise: Quantity([1,2,3], "m") + Quantity([4,5,6], "m") → [5,7,9] m
+Broadcasting: Quantity(100, "m") + Quantity([1,2,3], "m") → [101,102,103] m
+Indexing: Quantity([10,20,30,40,50], "m")[0] → 10.0 m
+Slicing: Quantity([10,20,30,40,50], "m")[1:4] → [20,30,40] m
+
+FORMATTING
+q = Quantity(5.123, "m")
+q.format()                           # "5.123 m" (auto magnitude-based)
+q.format(".2f")                      # "5.12 m" (custom format)
+Quantity(0.001, "m").format()        # "1.00E-03 m" (scientific)
+Quantity(1, "mm^2").format()         # "1.000 mm#super[2]" (Typst)
+
+FORMAT RULES (automatic when num_format=""):
+- Value = 0: "0"
+- 0 < |value| < 0.1 or |value| > 9999.9: Scientific notation (2 decimals)
+- 0.1 ≤ |value| < 10: 3 decimals
+- 10 ≤ |value| < 100: 2 decimals
+- 100 ≤ |value| < 1000: 1 decimal
+- 1000 ≤ |value| ≤ 9999.9: Integer
+
+ACCESSING UNDERLYING VALUES
+q = Quantity([1, 2, 3], "m")
+q.value                              # numpy array [1, 2, 3]
+q.unit                               # "m"
+type(q.value)                        # <class 'numpy.ndarray'>
+
+================================================================================
+KEY FEATURES
+================================================================================
+
+1. CANONICAL REPRESENTATION
+   - All units internally converted to base SI scale + dimension map
+   - Enables accurate conversions and dimension validation
+   - Example: "km" = scale:1000, dims:{L:1}
+
+2. DIMENSIONAL ANALYSIS
+   - Validates source and target units dimensionally compatible
+   - Prevents nonsensical conversions (e.g., meters to seconds)
+   - Automatic during conversion or explicit with valid()
+
+3. COMPOUND UNITS
+   - Supports complex unit strings with multiple components
+   - Syntax: space-separated tokens with optional exponents
+   - Work in arithmetic: forces create "kg m s-2" from kg·m/s²
+
+4. SCALAR AND ARRAY SUPPORT
+   - Same API for scalars and arrays
+   - Lists automatically converted to numpy arrays
+   - Type preserved: scalars stay scalars at construction
+   - Indexing scalar raises TypeError (expected behavior)
+
+5. BROADCASTING
+   - Scalar ± Array → Array (scalar broadcast to all elements)
+   - Array ± Array → Array (element-wise operations)
+   - Follows numpy broadcasting rules
+   - Unit compatibility checked before operation
+
+6. ARRAY OPERATIONS
+   - Full numpy-style indexing: arr[0], arr[1:4], arr[::2]
+   - Indexing returns Quantity with scalar or array as appropriate
+   - Single-element indexing returns Quantity(scalar)
+   - Multi-element slicing returns Quantity(array)
+
+7. TYPST FORMATTING
+   - Format units for Typst math mode
+   - Exponents: "m2" → "m#super[2]", "m-2" → "m#super[-2]"
+   - Unit separation: "N m" → "N \\u{22C5} m" (middle dot)
+   - Auto-detection: "mm2", "mm^2", "mm**2" all work
+
+8. SI BASE UNIT CONVERSION
+   - Convert any quantity to SI base units with to_si()
+   - Enables standardized comparison across different unit systems
+   - Useful for validating calculations and comparing normalized values
+   - Works with scalars, arrays, and compound units
+
+================================================================================
+PROJECT STRUCTURE
+================================================================================
+
+src/unity/
+├── __init__.py          # Package initialization
+├── core.py              # Core functions: parse_unit, conv, valid, invert_unit
+├── db.py                # UNIT_DB - unit definitions and database
+├── quantity.py          # Quantity class with arithmetic operations
+└── main.py              # (Purpose TBD)
+
+testing/
+├── test.py              # Basic test runner
+├── test_quantity_ops.py # Arithmetic and operation tests
+├── test_quantity_format.py  # Formatting tests
+└── test_quantity_arrays.py  # Array functionality tests
+
+examples/
+├── demo.py              # Basic scalar examples
+├── array_demo.py        # Array operations examples
+└── angle_demo.py        # Angle unit examples
+
+documentation/
+├── GUIDE.md             # Getting started guide (recommended first read)
+├── API_REFERENCE.md     # Single-page API reference
+├── reference.md         # Detailed documentation
+├── ARRAYS.md            # Array operations guide
+├── DOCUMENTATION.md     # Master index
+└── QUICK_REFERENCE.txt  # Quick reference card
+
+Root files:
+├── README.md            # Project overview and quick start
+├── reference.md         # Detailed reference
+└── pyproject.toml       # Python project metadata
+
+================================================================================
+QUANTITY CLASS IMPLEMENTATION DETAILS
+================================================================================
+
+Constructor (Quantity.__init__):
+- Accepts: scalar (float/int), list, or numpy array
+- Lists converted to numpy arrays automatically
+- Scalars remain as float/int (not wrapped in array)
+- Stores as: value (various types) and unit (str)
+
+Indexing (__getitem__):
+- Only works on numpy arrays
+- Raises TypeError for scalar quantities
+- Returns new Quantity with same unit
+- Single-element access returns Quantity(float)
+- Slice access returns Quantity(array)
+
+Arithmetic Operators:
+- All check unit compatibility with valid() first
+- Addition/Subtraction: Require same dimensions
+- Multiplication/Division: Combine/cancel dimensions
+- Broadcasting: Handled automatically by numpy
+- Result unit determined by operation:
+  - m + m = m
+  - m * s = m s
+  - m / s = m s-1
+
+Type Conversion:
+- Unit conversion via to(target_unit)
+- SI base unit conversion via to_si()
+- Returns new Quantity object (immutable pattern)
+- Preserves type: scalars stay scalars, arrays stay arrays
+- to_si() converts to standardized SI units for comparison
+
+================================================================================
+CONVERSION PROCESS (How It Works)
+================================================================================
+
+When calling: Quantity(100, "cm").to("m")
+
+1. PARSE-UNITS:
+   parse_unit("cm") → CanonicalUnit(scale=0.01, dims={L:1})
+   parse_unit("m")  → CanonicalUnit(scale=1.0, dims={L:1})
+
+2. VALIDATE:
+   {L:1} == {L:1} ✓ (dimensions match)
+
+3. CALCULATE-CONVERSION-FACTOR:
+   factor = from_scale / to_scale = 0.01 / 1.0 = 0.01
+   
+4. APPLY-FACTOR:
+   result = 100 * 0.01 = 1.0
+   
+5. RETURN:
+   Quantity(1.0, "m")
+
+For compound units: "kg m s-2" (Newton)
+- Parsed as product: {M:1, L:1, T:-2}
+- Only converts to units with same dimension signature
+- "N" is equivalent to "kg m s-2"
+
+================================================================================
+ERROR HANDLING
+================================================================================
+
+ValueError: Incompatible units for operation
+- Raised when adding/subtracting quantities with different dimensions
+- Raised when converting between incompatible units
+- Example: Quantity(10, "m") + Quantity(5, "s") → ValueError
+
+TypeError: Indexing on scalar quantities
+- Raised when trying to index scalar Quantity
+- Example: Quantity(5, "m")[0] → TypeError
+
+ValueError: Unknown unit
+- Raised when parsing unknown unit string
+- Example: Quantity(5, "xyz") → ValueError
+
+ValueError: Malformed unit
+- Raised when unit string has invalid syntax
+- Example: Quantity(5, "m@2") → ValueError
+
+================================================================================
+DESIGN DECISIONS
+================================================================================
+
+1. NUMPY-BASED ARRAYS
+   Decision: Use numpy arrays for all array operations
+   Rationale: Industry standard, efficient, broadcasting support
+   Alternative rejected: Python lists (no broadcasting, slow)
+
+2. IMMUTABLE PATTERN
+   Decision: All operations return new Quantity objects
+   Rationale: Functional style, prevents accidental mutations
+   Pattern: q.to("m") doesn't modify q, returns new Quantity
+
+3. SCALAR PRESERVATION
+   Decision: Scalars are float/int, arrays are numpy arrays
+   Rationale: Minimize overhead, clear type distinction
+   Alternative rejected: Always wrap in numpy (adds overhead)
+
+4. CANONICAL REPRESENTATION
+   Decision: Store all units as scale + dimension dict internally
+   Rationale: Enables flexible conversion, dimension validation
+   Alternative rejected: Store original unit string (loses info)
+
+5. WHITESPACE-SEPARATED COMPOUND UNITS
+   Decision: Compound units separated by spaces: "kg m s-2"
+   Rationale: Human-readable, unambiguous parsing
+   Alternative rejected: "kg*m*s-2" (harder to parse)
+
+6. AUTO FORMAT RULES
+   Decision: Format precision based on magnitude
+   Rationale: Maintains readability across all scales
+   Alternative rejected: Fixed precision (bad for 0.00001 or 10000)
+
+================================================================================
+TESTING
+================================================================================
+
+Test Files & Coverage:
+- test_quantity_ops.py: Arithmetic operations (add, subtract, multiply, divide)
+- test_quantity_format.py: Formatting with various precisions and units
+- test_quantity_arrays.py: Array operations, broadcasting, indexing
+- test.py: Main test runner
+
+All tests pass: ✓
+
+Examples (executable):
+- demo.py: Basic scalar conversions and arithmetic
+- array_demo.py: Array operations and broadcasting
+- angle_demo.py: Angle unit conversions and operations
+
+Run tests: python testing/test.py
+Run examples: python examples/demo.py
+
+================================================================================
+USAGE PATTERNS
+================================================================================
+
+PATTERN 1: SIMPLE CONVERSION
+from unity.quantity import Quantity
+distance = Quantity(5000, "m")
+print(distance.to("km"))  # 5.0 km
+
+PATTERN 2: PHYSICAL CALCULATIONS
+from unity.quantity import Quantity
+distance = Quantity(10, "m")
+time = Quantity(2, "s")
+velocity = distance / time
+print(velocity)  # 5.0 m s-1
+
+PATTERN 3: ARRAY PROCESSING
+from unity.quantity import Quantity
+distances = Quantity([100, 200, 300], "m")
+times = Quantity([10, 20, 15], "s")
+velocities = distances / times
+print(velocities)  # [10.0, 10.0, 20.0] m s-1
+
+PATTERN 4: BROADCASTING
+scalar = Quantity(100, "m")
+array = Quantity([1, 2, 3], "m")
+result = scalar + array  # [101, 102, 103] m
+
+PATTERN 5: VALIDATION BEFORE OPERATION
+from unity.core import valid
+if valid("m", "km"):
+    # safe to convert
+    pass
+
+PATTERN 6: DIMENSION CHECKING
+from unity.core import parse_unit
+canonical = parse_unit("kg m s-2")
+print(canonical.dims)  # {'M': 1, 'L': 1, 'T': -2}
+
+PATTERN 7: SI BASE UNIT COMPARISON
+from unity.quantity import Quantity
+# Compare values across different units
+q1 = Quantity(1, "km")
+q2 = Quantity(1000, "m")
+q3 = Quantity(1000000, "mm")
+
+si1 = q1.to_si()  # 1000.0 m
+si2 = q2.to_si()  # 1000.0 m
+si3 = q3.to_si()  # 1000.0 m
+
+print(si1.value == si2.value == si3.value)  # True
+# All normalize to same value for comparison
+
+================================================================================
+DOCUMENTATION RESOURCES
+================================================================================
+
+Quick Start (15 mins):
+→ README.md: Overview and basic examples
+→ QUICK_REFERENCE.txt: Command reference
+
+Learning Path (30 mins):
+→ GUIDE.md: Comprehensive getting started guide
+→ examples/demo.py: Run basic examples
+→ examples/array_demo.py: Run array examples
+
+Deep Dive (1-2 hours):
+→ API_REFERENCE.md: Complete API with examples
+→ reference.md: Detailed documentation
+→ ARRAYS.md: Advanced array operations
+→ testing/: Look at test files for edge cases
+
+Specific Topics:
+→ ARRAYS.md: Broadcasting, indexing, array operations
+→ GUIDE.md: Troubleshooting section
+→ API_REFERENCE.md: Type hints and exceptions
+
+Language:
+- All documentation includes 100+ code examples
+- 20+ real-world examples (physics, engineering)
+- Error handling and common patterns documented
+
+================================================================================
+COMMON PATTERNS & WORKFLOWS
+================================================================================
+
+WORKFLOW 1: PHYSICS CALCULATION
+1. Create quantities with units
+2. Use arithmetic operators to combine (forces cancels units logically)
+3. Result has correct derived unit
+4. Convert to desired output unit
+5. Format for display
+
+WORKFLOW 2: DATA PROCESSING
+1. Load data into array Quantity
+2. Convert all to common unit
+3. Perform element-wise operations
+4. Format results
+5. Export or visualize
+
+WORKFLOW 3: UNIT VALIDATION
+1. Check if conversion is valid with valid()
+2. Only proceed if True
+3. Handles user input safely
+
+WORKFLOW 4: SCIENTIFIC DOCUMENT GENERATION
+1. Perform calculations with Quantity
+2. Use format() to get Typst-friendly output
+3. Insert directly into Typst document
+4. Units render beautifully in math mode
+
+WORKFLOW 5: STANDARDIZED COMPARISON AND VALIDATION
+1. Convert quantities to SI base units with to_si()
+2. Compare normalized values across different unit systems
+3. Useful for validation and numerical comparisons
+4. Enables consistent value comparison regardless of input units
+5. Use in testing, validation, and data merging operations
+
+================================================================================
+KNOWN LIMITATIONS & EDGE CASES
+================================================================================
+
+1. NUMPY ARRAY INDEXING ON SCALARS
+   - Scalar indexing returns Quantity, not scalar
+   - By design: maintaining consistency with array API
+
+2. UNIT PARSING
+   - Compound units must be space-separated: "kg m s-2"
+   - "kgms-2" will fail (parser expects space delimiters)
+   - Exponent must be contiguous with unit name
+
+3. DIMENSION VALIDATION
+   - Only bases SI dimensions supported: M, L, T
+   - Temperature, luminosity not included
+   - Angles are dimensionless but supported as unit category
+
+4. FLOATING POINT PRECISION
+   - Standard IEEE 754 floating point limitations apply
+   - Very large/small exponents may lose precision
+   - Scientific notation format applies auto-switching
+
+5. NUMPY VERSION COMPATIBILITY
+   - Requires numpy >=1.24.0
+   - Some operations may differ on older versions
+
+================================================================================
+DEVELOPMENT NOTES
+================================================================================
+
+Language Features Used:
+- Type hints: Union, Dict, comprehensive annotations
+- Modern Python: f-strings, type protocols
+- Regex: for unit token parsing and formatting
+- Numpy: array operations and broadcasting
+
+Code Organization:
+- Separation of concerns: database, core logic, user API
+- Single Quantity class handles scalars and arrays uniformly
+- Core module functions are stateless (no shared state)
+- Database is read-only after initialization
+
+Adding New Units:
+1. Open src/unity/db.py
+2. Add entry to UNIT_DB with: name, scale (relative to SI base), dims
+3. Run tests to verify
+4. Use compound syntax for derived units
+
+Example for adding "mm":
+UNIT_DB["mm"] = {"scale": 0.001, "dims": {"L": 1}}
+
+================================================================================
+SUMMARY
+================================================================================
+
+Unity is a Python unit conversion library built on:
+- Canonical representation (scale + dimension map) for accuracy
+- Numpy integration for array operations
+- Dimensional analysis for safety
+- Ergonomic API with arithmetic operators
+- Typst formatting for scientific documents
+- SI base unit conversion for standardized comparison
+
+Key strengths:
+✓ Handles scalars and arrays with same API
+✓ Automatic dimensional validation
+✓ Compound unit support
+✓ Broadcasting between different shapes
+✓ Clear error messages
+✓ SI base unit conversion for value normalization
+
+Suitable for:
+✓ Scientific calculations
+✓ Engineering applications  
+✓ Data processing with units
+✓ Typst document generation
+✓ Unit validation and conversion
+✓ Standardized value comparison across unit systems
+
+Code is clean, well-tested, thoroughly documented, and ready for extension.
+
+================================================================================

@@ -1,7 +1,7 @@
 from typing import Union
 import re
 import numpy as np
-from .core import conv, valid, invert_unit
+from .core import conv, valid, invert_unit, parse_unit, dims_to_si_unit
 
 def format_unit_typst(unit: str) -> str:
     """
@@ -50,6 +50,42 @@ class Quantity:
     def to(self, target_unit: str) -> 'Quantity':
         new_value = conv(self.value, self.unit, target_unit)
         return Quantity(new_value, target_unit)
+    
+    def to_si(self) -> 'Quantity':
+        """
+        Convert quantity to SI base units for standardized comparison.
+        
+        This converts the quantity to its SI base unit representation, allowing
+        for easy comparison of values. The value is adjusted by the scale factor
+        to maintain equivalence.
+        
+        Examples:
+        - Quantity(1, "km").to_si() → Quantity(1000, "m")
+        - Quantity(1000, "mm").to_si() → Quantity(1, "m")
+        - Quantity(100, "N").to_si() → Quantity(100, "kg m s-2")
+        - Quantity(60, "min").to_si() → Quantity(3600, "s")
+        
+        Returns:
+            New Quantity with value converted to SI base units
+            
+        Notes:
+            SI base units are:
+            - Mass: kg
+            - Length: m
+            - Time: s
+            - SI derived units are decomposed into these bases
+        """
+        # Parse the current unit to canonical form
+        canonical = parse_unit(self.unit)
+        
+        # Generate SI base unit string from dimensions
+        si_unit = dims_to_si_unit(canonical.dims)
+        
+        # Convert value: multiply by scale to get SI base value
+        # (scale is relative to SI base, so multiplying by scale gives us the SI value)
+        si_value = self.value * canonical.scale
+        
+        return Quantity(si_value, si_unit)
         
     def __repr__(self):
         if isinstance(self.value, np.ndarray):

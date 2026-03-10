@@ -114,3 +114,45 @@ def invert_unit(unit_str: str) -> str:
             
     return " ".join(inverted_tokens)
 
+def dims_to_si_unit(dims: Dict[str, int]) -> str:
+    """
+    Converts a dimensions dictionary to an SI base unit string.
+    
+    Examples:
+    - {L: 1} -> "m"
+    - {M: 1} -> "kg"
+    - {T: 1} -> "s"
+    - {M: 1, L: 1, T: -2} -> "kg m s-2"
+    
+    Args:
+        dims: Dictionary mapping dimension names to exponents
+        
+    Returns:
+        SI base unit string (space-separated tokens)
+    """
+    # Map dimension abbreviations to SI base unit names
+    dim_to_unit = {
+        'M': 'kg',  # Mass -> kilogram
+        'L': 'm',   # Length -> meter
+        'T': 's',   # Time -> second
+    }
+    
+    tokens = []
+    
+    # Sort for consistent output
+    for dim in sorted(dims.keys()):
+        exp = dims[dim]
+        if dim not in dim_to_unit:
+            # Unknown dimension, skip (shouldn't happen in normal use)
+            continue
+        
+        unit = dim_to_unit[dim]
+        
+        if exp == 1:
+            tokens.append(unit)
+        else:
+            tokens.append(f"{unit}{exp}")
+    
+    # Return space-separated or empty string for dimensionless
+    return " ".join(tokens) if tokens else ""
+

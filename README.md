@@ -12,6 +12,7 @@ A robust and flexible unit conversion library with support for scalar values, li
 - **Broadcasting**: Seamless operations between array and scalar quantities.
 - **Indexing & Slicing**: Full numpy-style indexing and slicing support for array quantities.
 - **Element-wise Operations**: Automatic element-wise arithmetic operations on arrays.
+- **SI Conversion**: Convert any quantity to SI base units for standardized comparison and analysis.
 
 ## Quick Start
 
@@ -76,6 +77,24 @@ print(subset)  # [10, 15, 20] m s-1
 # Stride
 every_other = speeds[::2]
 print(every_other)  # [5, 15, 25] m s-1
+```
+
+### Converting to SI Base Units
+
+```python
+# Convert to SI base units for standardized comparison
+q1 = Quantity(1, "km")
+q1_si = q1.to_si()
+print(q1_si)  # 1000.0 m
+
+q2 = Quantity(60, "min")
+q2_si = q2.to_si()
+print(q2_si)  # 3600.0 s
+
+# Compare normalized values easily
+q3 = Quantity(1, "km")
+q4 = Quantity(1000, "m")
+print(q3.to_si().value == q4.to_si().value)  # True
 ```
 
 ### Unit Validation
