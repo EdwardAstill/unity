@@ -18,10 +18,38 @@ class CanonicalUnit:
     def __repr__(self):
         return f"CanonicalUnit(scale={self.scale}, dims={self.dims})"
 
+def _suggest_unit_split(token: str) -> str | None:
+    """
+    Try to split an unknown unit token into known units by greedy longest-prefix match.
+    Returns a space-separated suggestion string, or None if no valid split found.
+    e.g. "kNm" -> "kN m", "Nmm" -> "N mm"
+    """
+    def _split(s: str) -> list[str] | None:
+        if not s:
+            return []
+        for i in range(len(s), 0, -1):
+            prefix = s[:i]
+            if prefix in UNIT_DB:
+                rest = _split(s[i:])
+                if rest is not None:
+                    return [prefix] + rest
+        return None
+
+    parts = _split(token)
+    if parts and len(parts) > 1:
+        return " ".join(parts)
+    return None
+
+
+_DIMENSIONLESS_ALIASES = {"-", "dimensionless", "ratio", "none", ""}
+
 def parse_unit(unit_str: str) -> CanonicalUnit:
     """
     Parses a unit string (e.g., "kg m s-2") into a CanonicalUnit.
     """
+    if unit_str.strip().lower() in _DIMENSIONLESS_ALIASES:
+        return CanonicalUnit(1.0, {})
+
     tokens = unit_str.strip().split()
     
     total_scale = 1.0
@@ -41,7 +69,16 @@ def parse_unit(unit_str: str) -> CanonicalUnit:
         exponent = int(exponent_str) if exponent_str else 1
         
         if unit_name not in UNIT_DB:
-            raise ValueError(f"Unknown unit: '{unit_name}'")
+            suggestion = _suggest_unit_split(unit_name)
+            if suggestion:
+                exponent_str_hint = match.group(2) or ""
+                # Attach the exponent to the last token of the suggestion
+                suggested_tokens = suggestion.split()
+                suggested_tokens[-1] += exponent_str_hint
+                hint = f" — did you mean '{' '.join(suggested_tokens)}'?"
+            else:
+                hint = ""
+            raise ValueError(f"Unknown unit: '{unit_name}'{hint}")
         
         unit_def = UNIT_DB[unit_name]
         
