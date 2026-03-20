@@ -8,10 +8,10 @@ def format_unit_typst(unit: str) -> str:
     Convert a unit string into Typst-friendly output.
 
     Examples:
-    - "mm2"  -> "mm#super[2]"
-    - "mm^2" -> "mm#super[2]"
-    - "mm**2" -> "mm#super[2]"
-    - "N m"  -> "N \\u{22C5} m"
+    - "mm2"  -> '"mm"^(2)'
+    - "mm^2" -> '"mm"^(2)'
+    - "mm**2" -> '"mm"^(2)'
+    - "N m"  -> '"N""m"'
 
     Notes:
     - This is token-based (splits on whitespace). Tokens that don't match the supported
@@ -21,19 +21,19 @@ def format_unit_typst(unit: str) -> str:
     formatted_parts: list[str] = []
     for part in parts:
         # Accept both "mm2" and caret/pythonic styles like "mm^2" / "mm**2".
-        # If the token doesn't match, we leave it unchanged (e.g. "kN/m^2" or already-formatted "mm#super[2]").
+        # If the token doesn't match, we leave it unchanged (e.g. "kN/m^2" or already-formatted).
         match = re.match(r"^([a-zA-Z]+)(?:(?:\^)|(?:\*\*))?([-+]?\d+)?$", part)
         if match:
             base = match.group(1)
             exp = match.group(2)
             if exp:
-                formatted_parts.append(f"{base}#super[{exp}]")
+                formatted_parts.append(f'"{base}"^({exp})')
             else:
-                formatted_parts.append(f"{base}")
+                formatted_parts.append(f'"{base}"')
         else:
             formatted_parts.append(f"{part}")
 
-    return " \\u{22C5} ".join(formatted_parts)
+    return "".join(formatted_parts)
 
 class Quantity:
     def __init__(self, value: Union[float, int, list, np.ndarray], unit: str):
@@ -238,6 +238,6 @@ class Quantity:
         format_unit = format_unit_typst(self.unit)
         
         if format_unit:
-            return f"{formatted_num} {format_unit}"
+            return f"{formatted_num} space {format_unit}"
         else:
             return f"{formatted_num}"
