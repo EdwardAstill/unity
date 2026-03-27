@@ -1,0 +1,1 @@
+- [feedback_use_uv.md](feedback_use_uv.md) — Always use uv for package management, not pip

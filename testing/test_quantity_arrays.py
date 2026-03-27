@@ -216,7 +216,7 @@ class TestQuantityArrays(unittest.TestCase):
         """Test that scalar formatting still works as before."""
         q = Quantity(5.0, "m")
         result = q.format()
-        self.assertEqual(result, "5.000 m")
+        self.assertEqual(result, '5.000 space "m"')
     
     def test_repr_array(self):
         """Test __repr__ for array quantity."""

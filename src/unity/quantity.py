@@ -3,36 +3,50 @@ import re
 import numpy as np
 from .core import conv, valid, invert_unit, parse_unit, dims_to_si_unit
 
+def _parse_unit_tokens(unit: str) -> list[tuple[str, str | None]]:
+    """Parse a unit string into (base, exponent) token pairs."""
+    parts = unit.split()
+    tokens: list[tuple[str, str | None]] = []
+    for part in parts:
+        match = re.match(r"^([a-zA-Z]+)(?:(?:\^)|(?:\*\*))?([-+]?\d+)?$", part)
+        if match:
+            tokens.append((match.group(1), match.group(2)))
+        else:
+            tokens.append((part, None))
+    return tokens
+
 def format_unit_typst(unit: str) -> str:
     """
-    Convert a unit string into Typst-friendly output.
+    Convert a unit string into Typst math-mode output.
 
     Examples:
     - "mm2"  -> '"mm"^(2)'
     - "mm^2" -> '"mm"^(2)'
-    - "mm**2" -> '"mm"^(2)'
     - "N m"  -> '"N""m"'
-
-    Notes:
-    - This is token-based (splits on whitespace). Tokens that don't match the supported
-      patterns are passed through unchanged.
     """
-    parts = unit.split()
     formatted_parts: list[str] = []
-    for part in parts:
-        # Accept both "mm2" and caret/pythonic styles like "mm^2" / "mm**2".
-        # If the token doesn't match, we leave it unchanged (e.g. "kN/m^2" or already-formatted).
-        match = re.match(r"^([a-zA-Z]+)(?:(?:\^)|(?:\*\*))?([-+]?\d+)?$", part)
-        if match:
-            base = match.group(1)
-            exp = match.group(2)
-            if exp:
-                formatted_parts.append(f'"{base}"^({exp})')
-            else:
-                formatted_parts.append(f'"{base}"')
+    for base, exp in _parse_unit_tokens(unit):
+        if exp:
+            formatted_parts.append(f'"{base}"^({exp})')
         else:
-            formatted_parts.append(f"{part}")
+            formatted_parts.append(f'"{base}"')
+    return "".join(formatted_parts)
 
+def format_unit_typst_markup(unit: str) -> str:
+    """
+    Convert a unit string into Typst markup (content-mode) output.
+
+    Examples:
+    - "mm2"  -> 'mm#super[2]'
+    - "N m"  -> 'Nm'
+    - "N m s-2" -> 'Nms#super[-2]'
+    """
+    formatted_parts: list[str] = []
+    for base, exp in _parse_unit_tokens(unit):
+        if exp:
+            formatted_parts.append(f'{base}#super[{exp}]')
+        else:
+            formatted_parts.append(base)
     return "".join(formatted_parts)
 
 class Quantity:
@@ -234,10 +248,17 @@ class Quantity:
             fmt = get_format_string(self.value)
             formatted_num = fmt.format(self.value)
         
-        # Unit formatting logic for typst
-        format_unit = format_unit_typst(self.unit)
-        
+        # Unit formatting
+        if style in ("typst", "typst-math"):
+            format_unit = format_unit_typst(self.unit)
+            separator = " space "
+        elif style == "typst-markup":
+            format_unit = format_unit_typst_markup(self.unit)
+            separator = " "
+        else:
+            raise ValueError(f"Unknown style: '{style}'")
+
         if format_unit:
-            return f"{formatted_num} space {format_unit}"
+            return f"{formatted_num}{separator}{format_unit}"
         else:
             return f"{formatted_num}"
