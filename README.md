@@ -12,6 +12,7 @@ A robust and flexible unit conversion library with support for scalar values, li
 - **Broadcasting**: Seamless operations between array and scalar quantities.
 - **Indexing & Slicing**: Full numpy-style indexing and slicing support for array quantities.
 - **Element-wise Operations**: Automatic element-wise arithmetic operations on arrays.
+- **Unit-Aware Comparisons**: Compare compatible quantities after automatic unit conversion.
 - **SI Conversion**: Convert any quantity to SI base units for standardized comparison and analysis.
 
 ## Quick Start
@@ -42,6 +43,22 @@ force = Quantity(100, "N")
 work = force * distance
 print(work)  # 1000 N m
 ```
+
+### Comparisons
+
+Comparisons accept another dimensionally compatible `Quantity`. The right
+operand is converted to the left operand's units before comparing.
+
+```python
+load = Quantity(1, "kN")
+
+print(load == Quantity(1000, "N"))  # True
+print(load > Quantity(500, "N"))    # True
+```
+
+Array comparisons are element-wise and support NumPy broadcasting. Comparing
+incompatible units raises `ValueError`; comparing a quantity with a bare number
+raises `TypeError` because the number has no unit.
 
 ### Array Support
 
@@ -91,10 +108,10 @@ q2 = Quantity(60, "min")
 q2_si = q2.to_si()
 print(q2_si)  # 3600.0 s
 
-# Compare normalized values easily
+# Direct quantity comparisons perform this normalization automatically
 q3 = Quantity(1, "km")
 q4 = Quantity(1000, "m")
-print(q3.to_si().value == q4.to_si().value)  # True
+print(q3 == q4)  # True
 ```
 
 ### Unit Validation
@@ -186,4 +203,3 @@ Run the demo scripts:
 python examples/demo.py              # Basic examples
 python examples/array_demo.py        # Array examples
 ```
-

@@ -9,6 +9,36 @@ from unity.main import Quantity
 
 class TestQuantityOps(unittest.TestCase):
 
+    def test_equal_quantities_convert_units(self):
+        self.assertTrue(Quantity(1, "kN") == Quantity(1000, "N"))
+        self.assertFalse(Quantity(1, "kN") == Quantity(999, "N"))
+        self.assertTrue(Quantity(1, "kN") != Quantity(999, "N"))
+
+    def test_ordered_comparisons_convert_units(self):
+        load = Quantity(1, "kN")
+
+        self.assertTrue(load > Quantity(500, "N"))
+        self.assertTrue(load >= Quantity(1000, "N"))
+        self.assertTrue(load < Quantity(2, "kN"))
+        self.assertTrue(load <= Quantity(1000, "N"))
+
+    def test_comparisons_reject_incompatible_units(self):
+        load = Quantity(1, "kN")
+        length = Quantity(1, "m")
+
+        with self.assertRaisesRegex(ValueError, "Incompatible units for comparison"):
+            _ = load == length
+        with self.assertRaisesRegex(ValueError, "Incompatible units for comparison"):
+            _ = load < length
+
+    def test_comparisons_require_another_quantity(self):
+        load = Quantity(1, "kN")
+
+        with self.assertRaisesRegex(TypeError, "another Quantity"):
+            _ = load == 1
+        with self.assertRaisesRegex(TypeError, "another Quantity"):
+            _ = load > 1
+
     def test_add(self):
         q1 = Quantity(10, "m")
         q2 = Quantity(0.001, "km") # 1 m

@@ -262,6 +262,27 @@ Quantity([100, 200], "m") / Quantity([10, 20], "s")  # [10, 10] m s-1
 
 ---
 
+#### Comparisons (`==`, `!=`, `<`, `<=`, `>`, `>=`)
+
+```python
+q1 <operator> q2 -> bool | np.ndarray
+```
+
+Compares compatible quantities after converting `q2` into `q1`'s units.
+Array quantities compare element-wise and use NumPy broadcasting.
+
+```python
+Quantity(1, "kN") == Quantity(1000, "N")  # True
+Quantity(1, "kN") > Quantity(500, "N")    # True
+Quantity([1, 2, 3], "m") < Quantity(250, "cm")
+# array([True, True, False])
+```
+
+Raises `ValueError` for incompatible dimensions and `TypeError` when the other
+operand is not a `Quantity`.
+
+---
+
 ### Indexing & Slicing
 
 #### `__getitem__(key) -> Quantity`
@@ -492,4 +513,3 @@ def convert_multiple(values: Union[float, np.ndarray], unit: str) -> Quantity:
 - [reference.md](reference.md) - Detailed documentation
 - [ARRAYS.md](ARRAYS.md) - Array operations guide
 - [examples/](examples/) - Working examples
-

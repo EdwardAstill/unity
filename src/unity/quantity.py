@@ -125,6 +125,37 @@ class Quantity:
             indexed_value = float(indexed_value)
         return Quantity(indexed_value, self.unit)
 
+    def _comparison_value(self, other: object) -> Union[float, np.ndarray]:
+        """Return ``other`` converted to this quantity's units for comparison."""
+        if not isinstance(other, Quantity):
+            raise TypeError(
+                "Quantity comparisons require another Quantity, "
+                f"got {type(other).__name__}"
+            )
+        if not valid(self.unit, other.unit):
+            raise ValueError(
+                f"Incompatible units for comparison: '{self.unit}' and '{other.unit}'"
+            )
+        return conv(other.value, other.unit, self.unit)
+
+    def __eq__(self, other: object) -> Union[bool, np.ndarray]:
+        return self.value == self._comparison_value(other)
+
+    def __ne__(self, other: object) -> Union[bool, np.ndarray]:
+        return self.value != self._comparison_value(other)
+
+    def __lt__(self, other: object) -> Union[bool, np.ndarray]:
+        return self.value < self._comparison_value(other)
+
+    def __le__(self, other: object) -> Union[bool, np.ndarray]:
+        return self.value <= self._comparison_value(other)
+
+    def __gt__(self, other: object) -> Union[bool, np.ndarray]:
+        return self.value > self._comparison_value(other)
+
+    def __ge__(self, other: object) -> Union[bool, np.ndarray]:
+        return self.value >= self._comparison_value(other)
+
     def __add__(self, other: 'Quantity') -> 'Quantity':
         if not isinstance(other, Quantity):
             return NotImplemented

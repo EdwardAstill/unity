@@ -10,6 +10,25 @@ from unity.quantity import Quantity
 
 
 class TestQuantityArrays(unittest.TestCase):
+
+    def test_array_comparisons_convert_units_elementwise(self):
+        measured = Quantity([1, 2, 3], "m")
+        limits = Quantity([100, 150, 400], "cm")
+
+        np.testing.assert_array_equal(measured == limits, [True, False, False])
+        np.testing.assert_array_equal(measured != limits, [False, True, True])
+        np.testing.assert_array_equal(measured < limits, [False, False, True])
+        np.testing.assert_array_equal(measured <= limits, [True, False, True])
+        np.testing.assert_array_equal(measured > limits, [False, True, False])
+        np.testing.assert_array_equal(measured >= limits, [True, True, False])
+
+    def test_array_comparison_broadcasts_scalar_quantity(self):
+        measured = Quantity([1, 2, 3], "m")
+
+        np.testing.assert_array_equal(
+            measured > Quantity(150, "cm"),
+            [False, True, True],
+        )
     
     def test_create_from_list(self):
         """Test creating quantity from list."""
@@ -295,4 +314,3 @@ class TestQuantityArrays(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

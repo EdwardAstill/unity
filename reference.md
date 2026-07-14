@@ -145,6 +145,24 @@ print(scalar + array)  # [11.0, 12.0, 13.0] m
 print(array * 2)       # [2, 4, 6] m
 ```
 
+#### Comparison Operations
+
+`==`, `!=`, `<`, `<=`, `>`, and `>=` compare two dimensionally compatible
+quantities. The right operand is converted to the left operand's units first.
+Scalar comparisons return `bool`; array comparisons return an element-wise
+NumPy boolean array and support broadcasting.
+
+```python
+Quantity(1, "kN") == Quantity(1000, "N")  # True
+Quantity(1, "kN") > Quantity(500, "N")    # True
+
+Quantity([1, 2, 3], "m") >= Quantity(200, "cm")
+# array([False, True, True])
+```
+
+Incompatible dimensions raise `ValueError`. Bare numbers raise `TypeError`
+because Unity cannot infer their units.
+
 #### `__getitem__(key: Union[int, slice]) -> Quantity`
 Supports indexing and slicing for array quantities.
 
@@ -466,4 +484,3 @@ in_meters = measurements.to("m")
 # Apply scaling
 doubled = in_meters * 2
 ```
-
