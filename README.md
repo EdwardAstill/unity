@@ -71,58 +71,170 @@ These functions are available from their modules, not the top-level package:
 
 ## Examples
 
+### Convert a value
+
+```python
+from unity import conv
+
+print(conv(100, "cm", "m"))  # 1.0
+print(conv(1, "kN", "N"))  # 1000.0
+```
+
+### Check unit compatibility
+
+```python
+from unity import is_compatible
+
+print(is_compatible("N", "kg m s-2"))  # True
+print(is_compatible("m", "s"))  # False
+```
+
+### Inspect a unit
+
+```python
+from unity import Unit
+
+unit = Unit.from_string("mm2")
+print(unit.scale)  # 1e-06
+print(unit.dims)  # {'L': 2}
+print(Unit(1, {"L": 1, "T": 0}).dims)  # {'L': 1}
+```
+
+### Invert a unit
+
+```python
+from unity import invert_unit
+
+print(invert_unit("s-1"))  # s
+print(invert_unit("m s-2"))  # m-1 s2
+```
+
+### Convert a quantity
+
+```python
+from unity import Quantity
+
+distance = Quantity(2.5, "km")
+print(distance.to("m"))  # 2500.0 m
+```
+
+### Convert to SI base units
+
+```python
+from unity import Quantity
+
+print(Quantity(1, "km").to_si())  # 1000.0 m
+print(Quantity(100, "N").to_si())  # 100.0 m kg s-2
+```
+
+### Convert an array
+
+```python
+from unity import Quantity
+
+distances = Quantity([1, 2, 3], "km")
+print(distances.to("m"))  # [1000.0, 2000.0, 3000.0] m
+```
+
+### Index and slice an array
+
+```python
+from unity import Quantity
+
+distances = Quantity([1, 2, 3], "km")
+print(distances[0])  # 1.0 km
+print(distances[1:])  # [2, 3] km
+```
+
+### Add and subtract quantities
+
+```python
+from unity import Quantity
+
+distance = Quantity(10, "m")
+print(distance + Quantity(500, "cm"))  # 15.0 m
+print(distance - Quantity(500, "cm"))  # 5.0 m
+```
+
+### Multiply and divide quantities
+
+```python
+from unity import Quantity
+
+distance = Quantity(10, "m")
+work = Quantity(100, "N") * distance
+print(work.to("J"))  # 1000.0 J
+print(distance / Quantity(2, "s"))  # 5.0 m s-1
+print(2 * distance)  # 20.0 m
+```
+
+### Compare quantities
+
+```python
+from unity import Quantity
+
+print(Quantity(1, "kN") == Quantity(1000, "N"))  # True
+print(Quantity(2, "m") > Quantity(150, "cm"))  # True
+```
+
+### Broadcast arrays
+
+```python
+from unity import Quantity
+
+distances = Quantity([[1], [2]], "m")
+offsets = Quantity([100, 200], "cm")
+print(distances + offsets)  # [[2.0, 3.0], [3.0, 4.0]] m
+print((distances > offsets).tolist())  # [[False, False], [True, False]]
+```
+
+### Format a quantity for Typst
+
+```python
+from unity import Quantity
+
+area = Quantity(5, "m2")
+print(area.format())  # 5.000 space "m"^(2)
+print(area.format(".2f"))  # 5.00 space "m"^(2)
+print(area.format(".2f", "typst-markup"))  # 5.00 m#super[2]
+```
+
+### Format a multidimensional array
+
+```python
+from unity import Quantity
+
+values = Quantity([[[1, 2]], [[3, 4]]], "m")
+print(values.format(".1f"))  # [[[1.0, 2.0]], [[3.0, 4.0]]] space "m"
+```
+
+### Use angles with NumPy
+
+Convert angles to radians before passing their values to NumPy.
+
 ```python
 import numpy as np
-from unity import Unit, Quantity, conv, invert_unit, is_compatible
+from unity import Quantity
+
+angles = Quantity([0, 30, 90], "deg").to("rad")
+print(np.sin(angles.value).round(3).tolist())  # [0.0, 0.5, 1.0]
+```
+
+### Build an SI unit string
+
+```python
 from unity.core import dims_to_si_unit
+
+print(dims_to_si_unit({"M": 1, "L": 1, "T": -2}))  # m kg s-2
+```
+
+### Format a unit for Typst
+
+```python
 from unity.quantity import format_unit_typst, format_unit_typst_markup
 
-# Functions
-assert conv(100, "cm", "m") == 1.0
-assert is_compatible("N", "kg m s-2")
-assert not is_compatible("m", "s")
-unit = Unit.from_string("mm2")
-assert unit.scale == 1e-6
-assert unit.dims == {"L": 2}
-assert invert_unit("s-1") == "s"
-assert Unit(1, {"L": 1, "T": 0}).dims == {"L": 1}
-
-# Quantity objects: conversion, indexing, and slicing
-q = Quantity([1, 2, 3], "km")
-assert q.to("m").value.tolist() == [1000.0, 2000.0, 3000.0]
-assert q[0].value == 1.0
-assert q[1:].value.tolist() == [2, 3]
-si = Quantity(1, "km").to_si()
-assert (si.value, si.unit) == (1000.0, "m")
-
-# Arithmetic, comparisons, and array broadcasting
-distance = Quantity(10, "m")
-assert (distance + Quantity(500, "cm")).value == 15.0
-assert (distance - Quantity(500, "cm")).value == 5.0
-work = Quantity(100, "N") * distance
-assert work.to("J").value == 1000.0
-speed = distance / Quantity(2, "s")
-assert (speed.value, speed.unit) == (5.0, "m s-1")
-assert (2 * distance).value == 20.0
-assert Quantity(1, "kN") == Quantity(1000, "N")
-assert (q + Quantity(500, "m")).value.tolist() == [1.5, 2.5, 3.5]
-assert (q > Quantity(1500, "m")).tolist() == [False, True, True]
-
-# Scalar and multidimensional array formatting
-assert Quantity(5, "m2").format(".2f") == '5.00 space "m"^(2)'
-assert Quantity(5, "m2").format(".2f", "typst-markup") == "5.00 m#super[2]"
-assert Quantity([[1, 2], [3, 4]], "m").format(".1f") == (
-    '[[1.0, 2.0], [3.0, 4.0]] space "m"'
-)
-
-# Convert angles to radians before passing their values to NumPy
-angles = Quantity(np.array([0, 30, 90]), "deg").to("rad")
-np.testing.assert_allclose(np.sin(angles.value), [0, 0.5, 1], atol=1e-15)
-
-# Module helpers
-assert dims_to_si_unit({"M": 1, "L": 1, "T": -2}) == "m kg s-2"
-assert format_unit_typst("m2") == '"m"^(2)'
-assert format_unit_typst_markup("m2") == "m#super[2]"
+print(format_unit_typst("m2"))  # "m"^(2)
+print(format_unit_typst_markup("m2"))  # m#super[2]
 ```
 
 ## Testing
