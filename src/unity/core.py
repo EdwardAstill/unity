@@ -4,7 +4,7 @@ from typing import Dict, Union
 import numpy as np
 from .db import UNIT_DB
 
-class CanonicalUnit:
+class Unit:
     """
     Represents a unit in its canonical form:
     - scale: multiplier relative to the base SI system
@@ -15,8 +15,56 @@ class CanonicalUnit:
         # Remove dimensions with 0 exponent to keep it clean
         self.dims = {k: v for k, v in dims.items() if v != 0}
 
+    @classmethod
+    def from_string(cls, unit_str: str) -> "Unit":
+        """Parse a unit string such as "kg m s-2"."""
+        if unit_str.strip().lower() in _DIMENSIONLESS_ALIASES:
+            return cls(1.0, {})
+
+        tokens = unit_str.strip().split()
+
+        total_scale = 1.0
+        total_dims = defaultdict(int)
+
+        # Regex to separate unit name from exponent (e.g., "m2" -> "m", "2")
+        # Matches alpha characters at start, optional integer at end
+        pattern = re.compile(r"^([a-zA-Z]+)([-+]?\d+)?$")
+
+        for token in tokens:
+            match = pattern.match(token)
+            if not match:
+                raise ValueError(f"Invalid unit token: '{token}'")
+
+            unit_name = match.group(1)
+            exponent_str = match.group(2)
+            exponent = int(exponent_str) if exponent_str else 1
+
+            if unit_name not in UNIT_DB:
+                suggestion = _suggest_unit_split(unit_name)
+                if suggestion:
+                    exponent_str_hint = match.group(2) or ""
+                    # Attach the exponent to the last token of the suggestion
+                    suggested_tokens = suggestion.split()
+                    suggested_tokens[-1] += exponent_str_hint
+                    hint = f" — did you mean '{' '.join(suggested_tokens)}'?"
+                else:
+                    hint = ""
+                raise ValueError(f"Unknown unit: '{unit_name}'{hint}")
+
+            unit_def = UNIT_DB[unit_name]
+
+            # Apply exponent to the base scale
+            # e.g. if unit is "mm" (scale 1e-3) and token is "mm2", scale factor is (1e-3)^2
+            total_scale *= (unit_def["scale"] ** exponent)
+
+            # Add dimensions
+            for dim, dim_exp in unit_def["dims"].items():
+                total_dims[dim] += dim_exp * exponent
+
+        return cls(total_scale, dict(total_dims))
+
     def __repr__(self):
-        return f"CanonicalUnit(scale={self.scale}, dims={self.dims})"
+        return f"Unit(scale={self.scale}, dims={self.dims})"
 
 def _suggest_unit_split(token: str) -> str | None:
     """
@@ -43,63 +91,14 @@ def _suggest_unit_split(token: str) -> str | None:
 
 _DIMENSIONLESS_ALIASES = {"-", "dimensionless", "ratio", "none", ""}
 
-def parse_unit(unit_str: str) -> CanonicalUnit:
-    """
-    Parses a unit string (e.g., "kg m s-2") into a CanonicalUnit.
-    """
-    if unit_str.strip().lower() in _DIMENSIONLESS_ALIASES:
-        return CanonicalUnit(1.0, {})
-
-    tokens = unit_str.strip().split()
-    
-    total_scale = 1.0
-    total_dims = defaultdict(int)
-    
-    # Regex to separate unit name from exponent (e.g., "m2" -> "m", "2")
-    # Matches alpha characters at start, optional integer at end
-    pattern = re.compile(r"^([a-zA-Z]+)([-+]?\d+)?$")
-    
-    for token in tokens:
-        match = pattern.match(token)
-        if not match:
-            raise ValueError(f"Invalid unit token: '{token}'")
-        
-        unit_name = match.group(1)
-        exponent_str = match.group(2)
-        exponent = int(exponent_str) if exponent_str else 1
-        
-        if unit_name not in UNIT_DB:
-            suggestion = _suggest_unit_split(unit_name)
-            if suggestion:
-                exponent_str_hint = match.group(2) or ""
-                # Attach the exponent to the last token of the suggestion
-                suggested_tokens = suggestion.split()
-                suggested_tokens[-1] += exponent_str_hint
-                hint = f" — did you mean '{' '.join(suggested_tokens)}'?"
-            else:
-                hint = ""
-            raise ValueError(f"Unknown unit: '{unit_name}'{hint}")
-        
-        unit_def = UNIT_DB[unit_name]
-        
-        # Apply exponent to the base scale
-        # e.g. if unit is "mm" (scale 1e-3) and token is "mm2", scale factor is (1e-3)^2
-        total_scale *= (unit_def["scale"] ** exponent)
-        
-        # Add dimensions
-        for dim, dim_exp in unit_def["dims"].items():
-            total_dims[dim] += dim_exp * exponent
-            
-    return CanonicalUnit(total_scale, dict(total_dims))
-
 def conv(value: Union[float, np.ndarray], from_unit: str, to_unit: str) -> Union[float, np.ndarray]:
     """
     Converts a value from one unit to another.
     Supports both scalar values and numpy arrays.
     """
     # 1. Parse both to canonical form
-    c_from = parse_unit(from_unit)
-    c_to = parse_unit(to_unit)
+    c_from = Unit.from_string(from_unit)
+    c_to = Unit.from_string(to_unit)
     
     # 2. Validate dimensions match
     if c_from.dims != c_to.dims:
@@ -109,15 +108,15 @@ def conv(value: Union[float, np.ndarray], from_unit: str, to_unit: str) -> Union
     factor = c_from.scale / c_to.scale
     return value * factor
 
-def valid(from_unit: str, to_unit: str) -> bool:
+def is_compatible(from_unit: str, to_unit: str) -> bool:
     """
     Checks if a conversion between two units is valid (i.e., they are dimensionally equivalent).
     Returns True if valid, False otherwise.
     Also returns False if units are malformed or unknown.
     """
     try:
-        c_from = parse_unit(from_unit)
-        c_to = parse_unit(to_unit)
+        c_from = Unit.from_string(from_unit)
+        c_to = Unit.from_string(to_unit)
         return c_from.dims == c_to.dims
     except ValueError:
         return False
@@ -135,7 +134,6 @@ def invert_unit(unit_str: str) -> str:
     for token in tokens:
         match = pattern.match(token)
         if not match:
-             # Should be caught by parse_unit usually, but here just pass through or error
              raise ValueError(f"Invalid unit token: '{token}'")
              
         unit_name = match.group(1)

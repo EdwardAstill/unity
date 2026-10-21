@@ -1,11 +1,10 @@
-from .core import CanonicalUnit, parse_unit, conv, valid, invert_unit
+from .core import Unit, conv, is_compatible, invert_unit
 from .quantity import Quantity
 
 __all__ = [
-    'CanonicalUnit',
-    'parse_unit',
+    'Unit',
     'conv',
-    'valid',
+    'is_compatible',
     'invert_unit',
     'Quantity'
 ]

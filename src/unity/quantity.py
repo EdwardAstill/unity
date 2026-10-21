@@ -1,7 +1,7 @@
 from typing import Union
 import re
 import numpy as np
-from .core import conv, valid, invert_unit, parse_unit, dims_to_si_unit
+from .core import Unit, conv, is_compatible, invert_unit, dims_to_si_unit
 
 def _parse_unit_tokens(unit: str) -> list[tuple[str, str | None]]:
     """Parse a unit string into (base, exponent) token pairs."""
@@ -90,7 +90,7 @@ class Quantity:
             - SI derived units are decomposed into these bases
         """
         # Parse the current unit to canonical form
-        canonical = parse_unit(self.unit)
+        canonical = Unit.from_string(self.unit)
         
         # Generate SI base unit string from dimensions
         si_unit = dims_to_si_unit(canonical.dims)
@@ -132,7 +132,7 @@ class Quantity:
                 "Quantity comparisons require another Quantity, "
                 f"got {type(other).__name__}"
             )
-        if not valid(self.unit, other.unit):
+        if not is_compatible(self.unit, other.unit):
             raise ValueError(
                 f"Incompatible units for comparison: '{self.unit}' and '{other.unit}'"
             )
@@ -161,7 +161,7 @@ class Quantity:
             return NotImplemented
         
         # Check compatibility
-        if not valid(self.unit, other.unit):
+        if not is_compatible(self.unit, other.unit):
              raise ValueError(f"Incompatible units for addition: '{self.unit}' and '{other.unit}'")
              
         # Convert other to self's unit (handles both scalars and arrays)
@@ -174,7 +174,7 @@ class Quantity:
         if not isinstance(other, Quantity):
             return NotImplemented
             
-        if not valid(self.unit, other.unit):
+        if not is_compatible(self.unit, other.unit):
              raise ValueError(f"Incompatible units for subtraction: '{self.unit}' and '{other.unit}'")
              
         other_converted_val = conv(other.value, other.unit, self.unit)

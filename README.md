@@ -1,205 +1,130 @@
-﻿# Unity - Unit Conversion System
+# Unity
 
-A robust and flexible unit conversion library with support for scalar values, lists, and numpy arrays. Designed for scientific and engineering calculations with automatic dimensional analysis.
+Unit conversion and dimensional analysis for scalars and NumPy arrays.
+Requires Python 3.13+ and NumPy; install from the repository with `pip install -e .`.
 
-## Features
+## Unit strings
 
-- **Canonical Representation**: Internally converts all units to a base scale and dimension map (Mass, Length, Time).
-- **Compound Units**: Supports complex unit strings like `kg m s-2` or `kPa m2`.
-- **Dimensional Analysis**: Validates that source and target units are dimensionally equivalent before converting.
-- **Quantity Object**: Ergonomic API for unit conversions and arithmetic.
-- **Array Support**: Handle scalar values, lists, and numpy arrays with the same intuitive interface.
-- **Broadcasting**: Seamless operations between array and scalar quantities.
-- **Indexing & Slicing**: Full numpy-style indexing and slicing support for array quantities.
-- **Element-wise Operations**: Automatic element-wise arithmetic operations on arrays.
-- **Unit-Aware Comparisons**: Compare compatible quantities after automatic unit conversion.
-- **SI Conversion**: Convert any quantity to SI base units for standardized comparison and analysis.
+Use space-separated unit names with optional integer exponents: `"kg m s-2"`,
+`"mm2"`, `"m s-1"`. Names are case-sensitive; `/`, `^`, and `**` are not conversion
+syntax. Use `""` for dimensionless values (`"-"`, `"dimensionless"`, `"ratio"`, and
+`"none"` are also accepted by `Unit.from_string`). Supported names and scales are in
+[`src/unity/db.py`](src/unity/db.py). Temperature conversion supports Kelvin
+units only, not Celsius or Fahrenheit offsets.
 
-## Quick Start
+## Functions
 
-### Basic Conversion
+| Function | Result |
+| --- | --- |
+| `conv(value, from_unit, to_unit)` | Convert a number or NumPy array. Returns the converted value, not a `Quantity`. Raises `ValueError` for malformed, unknown, or incompatible units. Use `Quantity` for list inputs. |
+| `is_compatible(from_unit, to_unit)` | Return `True` when the units have matching dimensions; `False` for incompatible, malformed, or unknown units. |
+| `invert_unit(unit_str)` | Negate each token's exponent: `"m s-2"` becomes `"m-1 s2"`. Checks token syntax, not whether unit names exist. |
 
-```python
-from unity.quantity import Quantity
+## Unit object
 
-# Create a scalar quantity
-distance = Quantity(5000, "m")
+`Unit.from_string(unit_str)` is a classmethod that parses a unit string and returns
+a `Unit` with `.scale` relative to SI and `.dims`, a dictionary of dimension
+exponents. Malformed or unknown units raise `ValueError`.
 
-# Convert to another unit
-distance_km = distance.to("km")
-print(distance_km)  # 5.0 km
-```
+`Unit(scale, dims)` constructs directly from a scale and dimension dictionary,
+omitting zero exponents. Dimension keys are `M` (mass), `L` (length), `T` (time),
+`A` (angle), `I` (current), and `Theta` (temperature).
 
-### Scalar Arithmetic
+## Quantity object
 
-```python
-# Basic arithmetic with automatic unit handling
-distance = Quantity(10, "m")
-time = Quantity(2, "s")
-velocity = distance / time
-print(velocity)  # 5.0 m s-1
+`Quantity(value, unit)` accepts an `int`, `float`, list, or NumPy array.
+`.value` holds a float for scalars or an ndarray for arrays; lists become arrays,
+and existing arrays are stored without copying. `.unit` holds the unit string.
+Construction stores the unit without validating it.
 
-force = Quantity(100, "N")
-work = force * distance
-print(work)  # 1000 N m
-```
+### Methods
 
-### Comparisons
+| Method | Result |
+| --- | --- |
+| `q.to(target_unit)` | Return a new `Quantity` in the target units; leave `q` unchanged. Raises `ValueError` for malformed, unknown, or incompatible units. |
+| `q.to_si()` | Return a new `Quantity` scaled to SI base units. **Currently only mass, length, and time dimensions are preserved; angle, current, and temperature dimensions are dropped.** Use `.to(...)` for units involving those dimensions. |
+| `q.format(num_format="", style="typst")` | Return formatted text for a scalar or a 1D/2D array. `num_format` is a Python number format such as `".2f"`; when empty, precision depends on magnitude. `"typst"` and `"typst-math"` produce Typst math syntax; `"typst-markup"` produces content markup. Other styles raise `ValueError`. |
+| `str(q)` | Return the value followed by the unit. |
+| `repr(q)` | Return a representation such as `Quantity(5.0, 'm')`. |
+| `q[key]` | Return an indexed or sliced `Quantity` with the same unit, using NumPy indexing. Scalar quantities raise `TypeError`. |
 
-Comparisons accept another dimensionally compatible `Quantity`. The right
-operand is converted to the left operand's units before comparing.
+### Operators
 
-```python
-load = Quantity(1, "kN")
+| Operation | Behavior |
+| --- | --- |
+| `q + other`, `q - other` | Require another compatible `Quantity`; convert it to `q.unit` before operating. Incompatible units raise `ValueError`. |
+| `q * other`, `q / other` | Accept another `Quantity` or an `int`/`float`. Quantity multiplication concatenates units; division negates the divisor's exponents. Unit strings are not simplified. |
+| `number * q`, `number / q` | Scale the value; division also inverts the units. |
+| `q == other`, `q != other`, `q < other`, `q <= other`, `q > other`, `q >= other` | Convert another compatible `Quantity` to `q.unit`, then compare. Return a boolean for scalars or a boolean array for array comparisons. Incompatible units raise `ValueError`; bare numbers raise `TypeError`. |
 
-print(load == Quantity(1000, "N"))  # True
-print(load > Quantity(500, "N"))    # True
-```
+Array arithmetic and comparisons are element-wise and follow NumPy broadcasting.
 
-Array comparisons are element-wise and support NumPy broadcasting. Comparing
-incompatible units raises `ValueError`; comparing a quantity with a bare number
-raises `TypeError` because the number has no unit.
+## Module helpers
 
-### Array Support
+These functions are available from their modules, not the top-level package:
 
-```python
-import numpy as np
-
-# Create array quantities from lists or numpy arrays
-distances = Quantity([100, 200, 300], "m")
-times = Quantity([10, 20, 15], "s")
-
-# Element-wise operations
-velocities = distances / times
-print(velocities)  # [10.0, 10.0, 20.0] m s-1
-
-# Broadcasting (array + scalar)
-adjusted = distances + Quantity(50, "m")
-print(adjusted)  # [150, 250, 350] m
-```
-
-### Indexing and Slicing
-
-```python
-speeds = Quantity([5, 10, 15, 20, 25], "m s-1")
-
-# Get single element
-first_speed = speeds[0]
-print(first_speed)  # 5.0 m s-1
-
-# Slice array
-subset = speeds[1:4]
-print(subset)  # [10, 15, 20] m s-1
-
-# Stride
-every_other = speeds[::2]
-print(every_other)  # [5, 15, 25] m s-1
-```
-
-### Converting to SI Base Units
-
-```python
-# Convert to SI base units for standardized comparison
-q1 = Quantity(1, "km")
-q1_si = q1.to_si()
-print(q1_si)  # 1000.0 m
-
-q2 = Quantity(60, "min")
-q2_si = q2.to_si()
-print(q2_si)  # 3600.0 s
-
-# Direct quantity comparisons perform this normalization automatically
-q3 = Quantity(1, "km")
-q4 = Quantity(1000, "m")
-print(q3 == q4)  # True
-```
-
-### Unit Validation
-
-```python
-from unity.core import valid
-
-# Check if conversion is possible
-print(valid("mg", "kg"))  # True
-print(valid("m", "s"))    # False
-```
-
-## Supported Units
-
-The current database supports a wide range of units including:
-- **Mass**: kg, g, mg, t, lb, oz, tn...
-- **Length**: m, mm, cm, km, in, ft, yd, mi...
-- **Time**: s, min, h, d, y...
-- **Angle**: rad, deg, rev, rpm...
-- **Derived**: N, Pa, kPa, psi, J, W, Hz...
-- **Compound**: Any combination of the above (e.g., `kg m s-2`, `m s-1`)
-
-## Installation
-
-```bash
-pip install -e .
-```
-
-This will install `unity` with numpy as a dependency.
+| Function | Result |
+| --- | --- |
+| `dims_to_si_unit(dims)` | Build a unit string from `M`, `L`, and `T` exponents in sorted-key order; other dimension keys are ignored. Returns `""` for no dimensions. |
+| `format_unit_typst(unit)` | Format units for Typst math: `"m2"` becomes `'"m"^(2)'`. |
+| `format_unit_typst_markup(unit)` | Format units for Typst markup: `"m2"` becomes `"m#super[2]"`. |
 
 ## Examples
 
-### Scalar-Only Calculation
-
-```python
-from unity.quantity import Quantity
-
-# Convert 100 mg to kg
-q = Quantity(100, "mg")
-q_kg = q.to("kg")
-print(q_kg)  # 0.0001 kg
-```
-
-### Array-Based Physics
-
 ```python
 import numpy as np
-from unity.quantity import Quantity
+from unity import Unit, Quantity, conv, invert_unit, is_compatible
+from unity.core import dims_to_si_unit
+from unity.quantity import format_unit_typst, format_unit_typst_markup
 
-# Calculate work done by varying forces
-forces = Quantity([50, 100, 150, 200], "N")
+# Functions
+assert conv(100, "cm", "m") == 1.0
+assert is_compatible("N", "kg m s-2")
+assert not is_compatible("m", "s")
+unit = Unit.from_string("mm2")
+assert unit.scale == 1e-6
+assert unit.dims == {"L": 2}
+assert invert_unit("s-1") == "s"
+assert Unit(1, {"L": 1, "T": 0}).dims == {"L": 1}
+
+# Quantity objects: conversion, indexing, and slicing
+q = Quantity([1, 2, 3], "km")
+assert q.to("m").value.tolist() == [1000.0, 2000.0, 3000.0]
+assert q[0].value == 1.0
+assert q[1:].value.tolist() == [2, 3]
+si = Quantity(1, "km").to_si()
+assert (si.value, si.unit) == (1000.0, "m")
+
+# Arithmetic, comparisons, and array broadcasting
 distance = Quantity(10, "m")
-work = forces * distance
-print(work)  # [500.0, 1000.0, 1500.0, 2000.0] N m
-```
+assert (distance + Quantity(500, "cm")).value == 15.0
+assert (distance - Quantity(500, "cm")).value == 5.0
+work = Quantity(100, "N") * distance
+assert work.to("J").value == 1000.0
+speed = distance / Quantity(2, "s")
+assert (speed.value, speed.unit) == (5.0, "m s-1")
+assert (2 * distance).value == 20.0
+assert Quantity(1, "kN") == Quantity(1000, "N")
+assert (q + Quantity(500, "m")).value.tolist() == [1.5, 2.5, 3.5]
+assert (q > Quantity(1500, "m")).tolist() == [False, True, True]
 
-### Mixed Unit Operations
+# Scalar and multidimensional array formatting
+assert Quantity(5, "m2").format(".2f") == '5.00 space "m"^(2)'
+assert Quantity(5, "m2").format(".2f", "typst-markup") == "5.00 m#super[2]"
+assert Quantity([[1, 2], [3, 4]], "m").format(".1f") == (
+    '[[1.0, 2.0], [3.0, 4.0]] space "m"'
+)
 
-```python
-# Addition with automatic conversion
-distance1 = Quantity([1, 2, 3], "km")
-distance2 = Quantity([500, 750, 1000], "m")
-total = distance1 + distance2
-print(total)  # [1.5, 2.75, 4.0] km
-```
+# Convert angles to radians before passing their values to NumPy
+angles = Quantity(np.array([0, 30, 90]), "deg").to("rad")
+np.testing.assert_allclose(np.sin(angles.value), [0, 0.5, 1], atol=1e-15)
 
-### Formatted Output
-
-```python
-# Beautiful formatted output
-temperatures = Quantity([0.001, 5.5, 150, 10000], "m")
-print(temperatures.format())
-# [1.00E-03, 5.500, 150.0, 1.00E+04] m
+# Module helpers
+assert dims_to_si_unit({"M": 1, "L": 1, "T": -2}) == "m kg s-2"
+assert format_unit_typst("m2") == '"m"^(2)'
+assert format_unit_typst_markup("m2") == "m#super[2]"
 ```
 
 ## Testing
 
-Run the included test suites:
-
-```bash
-python testing/test_quantity_ops.py       # Scalar operations
-python testing/test_quantity_format.py    # Formatting
-python testing/test_quantity_arrays.py    # Array functionality
-```
-
-Run the demo scripts:
-
-```bash
-python examples/demo.py              # Basic examples
-python examples/array_demo.py        # Array examples
-```
+Run the examples with `python test.py`.

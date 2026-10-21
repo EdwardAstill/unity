@@ -10,3 +10,6 @@ dependencies = ["numpy>=1.24.0"]
 dev = [
     "pytest>=9.0.2",
 ]
+
+[tool.pytest.ini_options]
+python_files = ["test.py"]
