@@ -1,295 +1,197 @@
-from typing import Union
+"""Scalar and array quantities with unit-aware arithmetic and Typst formatting."""
+
+from __future__ import annotations
+
 import re
+
 import numpy as np
-from .core import Unit, conv, is_compatible, invert_unit, dims_to_si_unit
+
+from .core import Unit, conv, dims_to_si_unit, invert_unit
+
+# Display accepts exponent markers that the conversion grammar does not.
+_DISPLAY_UNIT_TOKEN = re.compile(r"([a-zA-Z]+)(?:\^|\*\*)?([-+]?\d+)?")
+
 
 def _parse_unit_tokens(unit: str) -> list[tuple[str, str | None]]:
-    """Parse a unit string into (base, exponent) token pairs."""
-    parts = unit.split()
-    tokens: list[tuple[str, str | None]] = []
-    for part in parts:
-        match = re.match(r"^([a-zA-Z]+)(?:(?:\^)|(?:\*\*))?([-+]?\d+)?$", part)
-        if match:
-            tokens.append((match.group(1), match.group(2)))
-        else:
-            tokens.append((part, None))
+    """Split display tokens, leaving unrecognized text as a literal unit name."""
+    tokens = []
+    for part in unit.split():
+        match = _DISPLAY_UNIT_TOKEN.fullmatch(part)
+        tokens.append((match[1], match[2]) if match else (part, None))
     return tokens
 
-def format_unit_typst(unit: str) -> str:
-    """
-    Convert a unit string into Typst math-mode output.
 
-    Examples:
-    - "mm2"  -> '"mm"^(2)'
-    - "mm^2" -> '"mm"^(2)'
-    - "N m"  -> '"N""m"'
-    """
-    formatted_parts: list[str] = []
-    for base, exp in _parse_unit_tokens(unit):
-        if exp:
-            formatted_parts.append(f'"{base}"^({exp})')
-        else:
-            formatted_parts.append(f'"{base}"')
-    return "".join(formatted_parts)
+def format_unit_typst(unit: str) -> str:
+    """Format units for Typst math, e.g. ``mm2`` becomes ``"mm"^(2)``."""
+    return "".join(
+        f'"{base}"^({exponent})' if exponent else f'"{base}"'
+        for base, exponent in _parse_unit_tokens(unit)
+    )
+
 
 def format_unit_typst_markup(unit: str) -> str:
-    """
-    Convert a unit string into Typst markup (content-mode) output.
+    """Format units for Typst markup, e.g. ``mm2`` becomes ``mm#super[2]``."""
+    return "".join(
+        f"{base}#super[{exponent}]" if exponent else base
+        for base, exponent in _parse_unit_tokens(unit)
+    )
 
-    Examples:
-    - "mm2"  -> 'mm#super[2]'
-    - "N m"  -> 'Nm'
-    - "N m s-2" -> 'Nms#super[-2]'
-    """
-    formatted_parts: list[str] = []
-    for base, exp in _parse_unit_tokens(unit):
-        if exp:
-            formatted_parts.append(f'{base}#super[{exp}]')
+
+def _format_number(value: float, num_format: str) -> str:
+    if not num_format:
+        magnitude = abs(value)
+        if magnitude == 0:
+            num_format = ".0f"
+        elif magnitude < 0.1 or magnitude > 9999.9:
+            num_format = ".2E"
+        elif magnitude < 10:
+            num_format = ".3f"
+        elif magnitude < 100:
+            num_format = ".2f"
+        elif magnitude < 1000:
+            num_format = ".1f"
         else:
-            formatted_parts.append(base)
-    return "".join(formatted_parts)
+            num_format = ".0f"
+    return format(value, num_format)
+
+
+def _format_value(value: float | np.ndarray, num_format: str) -> str:
+    if not isinstance(value, np.ndarray):
+        return _format_number(value, num_format)
+
+    numbers = (_format_number(item, num_format) for item in value.flat)
+
+    def format_shape(shape: tuple[int, ...]) -> str:
+        if not shape:
+            return next(numbers)
+        elements = (format_shape(shape[1:]) for _ in range(shape[0]))
+        return "[" + ", ".join(elements) + "]"
+
+    return format_shape(value.shape or (1,))
+
 
 class Quantity:
-    def __init__(self, value: Union[float, int, list, np.ndarray], unit: str):
-        # Convert lists to numpy arrays for consistent handling
-        if isinstance(value, list):
-            self.value = np.array(value)
-        elif isinstance(value, np.ndarray):
-            self.value = value
-        else:
-            # Keep scalars as scalars (float or int)
-            self.value = float(value)
-        self.unit = unit
-        
-    def to(self, target_unit: str) -> 'Quantity':
-        new_value = conv(self.value, self.unit, target_unit)
-        return Quantity(new_value, target_unit)
-    
-    def to_si(self) -> 'Quantity':
-        """
-        Convert quantity to SI base units for standardized comparison.
-        
-        This converts the quantity to its SI base unit representation, allowing
-        for easy comparison of values. The value is adjusted by the scale factor
-        to maintain equivalence.
-        
-        Examples:
-        - Quantity(1, "km").to_si() → Quantity(1000, "m")
-        - Quantity(1000, "mm").to_si() → Quantity(1, "m")
-        - Quantity(100, "N").to_si() → Quantity(100, "kg m s-2")
-        - Quantity(60, "min").to_si() → Quantity(3600, "s")
-        
-        Returns:
-            New Quantity with value converted to SI base units
-            
-        Notes:
-            SI base units are:
-            - Mass: kg
-            - Length: m
-            - Time: s
-            - SI derived units are decomposed into these bases
-        """
-        # Parse the current unit to canonical form
-        canonical = Unit.from_string(self.unit)
-        
-        # Generate SI base unit string from dimensions
-        si_unit = dims_to_si_unit(canonical.dims)
-        
-        # Convert value: multiply by scale to get SI base value
-        # (scale is relative to SI base, so multiplying by scale gives us the SI value)
-        si_value = self.value * canonical.scale
-        
-        return Quantity(si_value, si_unit)
-        
-    def __repr__(self):
-        if isinstance(self.value, np.ndarray):
-            return f"Quantity({self.value.tolist()}, '{self.unit}')"
-        return f"Quantity({self.value}, '{self.unit}')"
+    """A scalar or NumPy array paired with a unit string, validated on conversion."""
 
-    def __str__(self):
-        if isinstance(self.value, np.ndarray):
-            return f"{self.value.tolist()} {self.unit}"
-        return f"{self.value} {self.unit}"
-    
-    def __getitem__(self, key: Union[int, slice]) -> 'Quantity':
-        """
-        Support indexing and slicing for array quantities.
-        Returns a new Quantity with the indexed/sliced values and same unit.
-        """
+    def __init__(self, value: float | int | list | np.ndarray, unit: str):
+        if isinstance(value, list):
+            value = np.array(value)
+        self.value = value if isinstance(value, np.ndarray) else float(value)
+        self.unit = unit
+
+    def to(self, target_unit: str) -> Quantity:
+        """Return a new quantity expressed in the target units."""
+        return Quantity(conv(self.value, self.unit, target_unit), target_unit)
+
+    def to_si(self) -> Quantity:
+        """Scale to SI, expressing only mass, length, and time dimensions."""
+        unit = Unit.from_string(self.unit)
+        return Quantity(self.value * unit.scale, dims_to_si_unit(unit.dims))
+
+    def __repr__(self) -> str:
+        value = self.value
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        return f"Quantity({value}, '{self.unit}')"
+
+    def __str__(self) -> str:
+        value = self.value
+        if isinstance(value, np.ndarray):
+            value = value.tolist()
+        return f"{value} {self.unit}"
+
+    def __getitem__(self, key) -> Quantity:
+        """Index or slice an array quantity, retaining its unit."""
         if not isinstance(self.value, np.ndarray):
             raise TypeError("Indexing is only supported for array quantities")
-        
-        indexed_value = self.value[key]
-        # Convert scalar results back to float for consistency
-        if np.ndim(indexed_value) == 0:
-            indexed_value = float(indexed_value)
-        return Quantity(indexed_value, self.unit)
+        value = self.value[key]
+        return Quantity(float(value) if np.ndim(value) == 0 else value, self.unit)
 
-    def _comparison_value(self, other: object) -> Union[float, np.ndarray]:
-        """Return ``other`` converted to this quantity's units for comparison."""
+    def _converted_value(self, other: Quantity, operation: str) -> float | np.ndarray:
+        """Convert the other operand, with an operation-specific error message."""
+        try:
+            return conv(other.value, other.unit, self.unit)
+        except ValueError:
+            raise ValueError(
+                f"Incompatible units for {operation}: '{self.unit}' and '{other.unit}'"
+            ) from None
+
+    def _comparison_value(self, other: object) -> float | np.ndarray:
         if not isinstance(other, Quantity):
             raise TypeError(
                 "Quantity comparisons require another Quantity, "
                 f"got {type(other).__name__}"
             )
-        if not is_compatible(self.unit, other.unit):
-            raise ValueError(
-                f"Incompatible units for comparison: '{self.unit}' and '{other.unit}'"
-            )
-        return conv(other.value, other.unit, self.unit)
+        return self._converted_value(other, "comparison")
 
-    def __eq__(self, other: object) -> Union[bool, np.ndarray]:
+    def __eq__(self, other: object) -> bool | np.ndarray:
         return self.value == self._comparison_value(other)
 
-    def __ne__(self, other: object) -> Union[bool, np.ndarray]:
+    def __ne__(self, other: object) -> bool | np.ndarray:
         return self.value != self._comparison_value(other)
 
-    def __lt__(self, other: object) -> Union[bool, np.ndarray]:
+    def __lt__(self, other: object) -> bool | np.ndarray:
         return self.value < self._comparison_value(other)
 
-    def __le__(self, other: object) -> Union[bool, np.ndarray]:
+    def __le__(self, other: object) -> bool | np.ndarray:
         return self.value <= self._comparison_value(other)
 
-    def __gt__(self, other: object) -> Union[bool, np.ndarray]:
+    def __gt__(self, other: object) -> bool | np.ndarray:
         return self.value > self._comparison_value(other)
 
-    def __ge__(self, other: object) -> Union[bool, np.ndarray]:
+    def __ge__(self, other: object) -> bool | np.ndarray:
         return self.value >= self._comparison_value(other)
 
-    def __add__(self, other: 'Quantity') -> 'Quantity':
+    def __add__(self, other: Quantity) -> Quantity:
         if not isinstance(other, Quantity):
             return NotImplemented
-        
-        # Check compatibility
-        if not is_compatible(self.unit, other.unit):
-             raise ValueError(f"Incompatible units for addition: '{self.unit}' and '{other.unit}'")
-             
-        # Convert other to self's unit (handles both scalars and arrays)
-        other_converted_val = conv(other.value, other.unit, self.unit)
-        # Numpy handles broadcasting automatically
-        result = self.value + other_converted_val
-        return Quantity(result, self.unit)
-        
-    def __sub__(self, other: 'Quantity') -> 'Quantity':
+        value = self.value + self._converted_value(other, "addition")
+        return Quantity(value, self.unit)
+
+    def __sub__(self, other: Quantity) -> Quantity:
         if not isinstance(other, Quantity):
             return NotImplemented
-            
-        if not is_compatible(self.unit, other.unit):
-             raise ValueError(f"Incompatible units for subtraction: '{self.unit}' and '{other.unit}'")
-             
-        other_converted_val = conv(other.value, other.unit, self.unit)
-        # Numpy handles broadcasting automatically
-        result = self.value - other_converted_val
-        return Quantity(result, self.unit)
+        value = self.value - self._converted_value(other, "subtraction")
+        return Quantity(value, self.unit)
 
-    def __mul__(self, other: Union['Quantity', float, int]) -> 'Quantity':
+    def __mul__(self, other: Quantity | float | int) -> Quantity:
         if isinstance(other, (int, float)):
-            # Numpy handles scalar multiplication for both arrays and scalars
-            result = self.value * other
-            return Quantity(result, self.unit)
-        elif isinstance(other, Quantity):
-            # Element-wise multiplication with broadcasting
-            new_value = self.value * other.value
-            new_unit = f"{self.unit} {other.unit}".strip()
-            return Quantity(new_value, new_unit)
-        else:
-            return NotImplemented
-
-    def __rmul__(self, other: Union[float, int]) -> 'Quantity':
-        if isinstance(other, (int, float)):
-            result = self.value * other
-            return Quantity(result, self.unit)
+            return Quantity(self.value * other, self.unit)
+        if isinstance(other, Quantity):
+            return Quantity(
+                self.value * other.value, f"{self.unit} {other.unit}".strip()
+            )
         return NotImplemented
 
-    def __truediv__(self, other: Union['Quantity', float, int]) -> 'Quantity':
+    def __rmul__(self, other: float | int) -> Quantity:
         if isinstance(other, (int, float)):
-            result = self.value / other
-            return Quantity(result, self.unit)
-        elif isinstance(other, Quantity):
-            # Element-wise division with broadcasting
-            new_value = self.value / other.value
-            inverted_other_unit = invert_unit(other.unit)
-            new_unit = f"{self.unit} {inverted_other_unit}".strip()
-            return Quantity(new_value, new_unit)
-        else:
-            return NotImplemented
+            return Quantity(self.value * other, self.unit)
+        return NotImplemented
 
-    def __rtruediv__(self, other: Union[float, int]) -> 'Quantity':
+    def __truediv__(self, other: Quantity | float | int) -> Quantity:
         if isinstance(other, (int, float)):
-            result = other / self.value
-            inverted_unit = invert_unit(self.unit)
-            return Quantity(result, inverted_unit)
+            return Quantity(self.value / other, self.unit)
+        if isinstance(other, Quantity):
+            return Quantity(
+                self.value / other.value,
+                f"{self.unit} {invert_unit(other.unit)}".strip(),
+            )
+        return NotImplemented
+
+    def __rtruediv__(self, other: float | int) -> Quantity:
+        if isinstance(other, (int, float)):
+            return Quantity(other / self.value, invert_unit(self.unit))
         return NotImplemented
 
     def format(self, num_format: str = "", style: str = "typst") -> str:
-        """
-        Format the quantity according to specific magnitude rules.
-        For arrays: displays as [val1, val2, ...] unit (compact format)
-        """
-        def get_format_string(val: float) -> str:
-            """Helper to determine format string based on magnitude."""
-            if num_format != "":
-                return f"{{:{num_format}}}"
-            
-            abs_val = abs(val)
-            if abs_val == 0.0:
-                return "{:.0f}"
-            elif abs_val < 0.1 or abs_val > 9999.9:
-                return "{:.2E}"
-            elif abs_val < 10:
-                return "{:.3f}"
-            elif abs_val < 100:
-                return "{:.2f}"
-            elif abs_val < 1000:
-                return "{:.1f}"
-            else:
-                # Covers 1000 <= abs_val <= 9999.9
-                return "{:.0f}"
-        
-        # Handle array formatting
-        if isinstance(self.value, np.ndarray):
-            # Format each element according to magnitude rules
-            formatted_elements = []
-            for val in self.value.flat:
-                fmt = get_format_string(val)
-                formatted_elements.append(fmt.format(val))
-            
-            # Reshape back if multidimensional (for proper display)
-            if self.value.ndim > 1:
-                # For multidimensional arrays, use numpy's array representation
-                formatted_num = "["
-                formatted_flat = formatted_elements
-                idx = 0
-                for i in range(self.value.shape[0]):
-                    if i > 0:
-                        formatted_num += ", "
-                    formatted_num += "["
-                    for j in range(self.value.shape[1] if self.value.ndim > 1 else 1):
-                        if j > 0:
-                            formatted_num += ", "
-                        formatted_num += formatted_flat[idx]
-                        idx += 1
-                    formatted_num += "]"
-                formatted_num += "]"
-            else:
-                # 1D array: simple list format
-                formatted_num = "[" + ", ".join(formatted_elements) + "]"
-        else:
-            # Scalar formatting (original behavior)
-            fmt = get_format_string(self.value)
-            formatted_num = fmt.format(self.value)
-        
-        # Unit formatting
+        """Format a value and its unit, choosing precision by magnitude by default."""
+        number = _format_value(self.value, num_format)
         if style in ("typst", "typst-math"):
-            format_unit = format_unit_typst(self.unit)
+            unit = format_unit_typst(self.unit)
             separator = " space "
         elif style == "typst-markup":
-            format_unit = format_unit_typst_markup(self.unit)
+            unit = format_unit_typst_markup(self.unit)
             separator = " "
         else:
             raise ValueError(f"Unknown style: '{style}'")
-
-        if format_unit:
-            return f"{formatted_num}{separator}{format_unit}"
-        else:
-            return f"{formatted_num}"
+        return f"{number}{separator}{unit}" if unit else number

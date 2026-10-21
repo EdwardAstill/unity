@@ -43,7 +43,7 @@ Construction stores the unit without validating it.
 | --- | --- |
 | `q.to(target_unit)` | Return a new `Quantity` in the target units; leave `q` unchanged. Raises `ValueError` for malformed, unknown, or incompatible units. |
 | `q.to_si()` | Return a new `Quantity` scaled to SI base units. **Currently only mass, length, and time dimensions are preserved; angle, current, and temperature dimensions are dropped.** Use `.to(...)` for units involving those dimensions. |
-| `q.format(num_format="", style="typst")` | Return formatted text for a scalar or a 1D/2D array. `num_format` is a Python number format such as `".2f"`; when empty, precision depends on magnitude. `"typst"` and `"typst-math"` produce Typst math syntax; `"typst-markup"` produces content markup. Other styles raise `ValueError`. |
+| `q.format(num_format="", style="typst")` | Return formatted text for a scalar or an array of any dimension. `num_format` is a Python number format such as `".2f"`; when empty, precision depends on magnitude. `"typst"` and `"typst-math"` produce Typst math syntax; `"typst-markup"` produces content markup. Other styles raise `ValueError`. |
 | `str(q)` | Return the value followed by the unit. |
 | `repr(q)` | Return a representation such as `Quantity(5.0, 'm')`. |
 | `q[key]` | Return an indexed or sliced `Quantity` with the same unit, using NumPy indexing. Scalar quantities raise `TypeError`. |

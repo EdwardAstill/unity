@@ -1,193 +1,99 @@
+"""Parse, compare, and convert space-separated unit expressions."""
+
+from __future__ import annotations
+
 import re
 from collections import defaultdict
-from typing import Dict, Union
+
 import numpy as np
+
 from .db import UNIT_DB
 
+_UNIT_TOKEN = re.compile(r"([a-zA-Z]+)([-+]?\d+)?")
+_DIMENSIONLESS_ALIASES = {"", "-", "dimensionless", "ratio", "none"}
+_SI_UNITS = {"M": "kg", "L": "m", "T": "s"}
+
+
 class Unit:
-    """
-    Represents a unit in its canonical form:
-    - scale: multiplier relative to the base SI system
-    - dims: dictionary of base dimension exponents
-    """
-    def __init__(self, scale: float, dims: Dict[str, int]):
+    """A scale relative to SI and a mapping of base dimension exponents."""
+
+    def __init__(self, scale: float, dims: dict[str, int]):
         self.scale = scale
-        # Remove dimensions with 0 exponent to keep it clean
-        self.dims = {k: v for k, v in dims.items() if v != 0}
+        self.dims = {
+            dimension: exponent
+            for dimension, exponent in dims.items()
+            if exponent != 0
+        }
 
     @classmethod
-    def from_string(cls, unit_str: str) -> "Unit":
-        """Parse a unit string such as "kg m s-2"."""
+    def from_string(cls, unit_str: str) -> Unit:
+        """Parse an expression such as ``kg m s-2`` or a dimensionless alias."""
         if unit_str.strip().lower() in _DIMENSIONLESS_ALIASES:
             return cls(1.0, {})
 
-        tokens = unit_str.strip().split()
+        scale = 1.0
+        dims: defaultdict[str, int] = defaultdict(int)
+        for token in unit_str.split():
+            name, exponent = _parse_unit_token(token)
+            if name not in UNIT_DB:
+                raise ValueError(f"Unknown unit: '{name}'")
 
-        total_scale = 1.0
-        total_dims = defaultdict(int)
+            definition = UNIT_DB[name]
+            scale *= definition["scale"] ** exponent
+            for dimension, power in definition["dims"].items():
+                dims[dimension] += power * exponent
 
-        # Regex to separate unit name from exponent (e.g., "m2" -> "m", "2")
-        # Matches alpha characters at start, optional integer at end
-        pattern = re.compile(r"^([a-zA-Z]+)([-+]?\d+)?$")
+        return cls(scale, dims)
 
-        for token in tokens:
-            match = pattern.match(token)
-            if not match:
-                raise ValueError(f"Invalid unit token: '{token}'")
-
-            unit_name = match.group(1)
-            exponent_str = match.group(2)
-            exponent = int(exponent_str) if exponent_str else 1
-
-            if unit_name not in UNIT_DB:
-                suggestion = _suggest_unit_split(unit_name)
-                if suggestion:
-                    exponent_str_hint = match.group(2) or ""
-                    # Attach the exponent to the last token of the suggestion
-                    suggested_tokens = suggestion.split()
-                    suggested_tokens[-1] += exponent_str_hint
-                    hint = f" — did you mean '{' '.join(suggested_tokens)}'?"
-                else:
-                    hint = ""
-                raise ValueError(f"Unknown unit: '{unit_name}'{hint}")
-
-            unit_def = UNIT_DB[unit_name]
-
-            # Apply exponent to the base scale
-            # e.g. if unit is "mm" (scale 1e-3) and token is "mm2", scale factor is (1e-3)^2
-            total_scale *= (unit_def["scale"] ** exponent)
-
-            # Add dimensions
-            for dim, dim_exp in unit_def["dims"].items():
-                total_dims[dim] += dim_exp * exponent
-
-        return cls(total_scale, dict(total_dims))
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Unit(scale={self.scale}, dims={self.dims})"
 
-def _suggest_unit_split(token: str) -> str | None:
-    """
-    Try to split an unknown unit token into known units by greedy longest-prefix match.
-    Returns a space-separated suggestion string, or None if no valid split found.
-    e.g. "kNm" -> "kN m", "Nmm" -> "N mm"
-    """
-    def _split(s: str) -> list[str] | None:
-        if not s:
-            return []
-        for i in range(len(s), 0, -1):
-            prefix = s[:i]
-            if prefix in UNIT_DB:
-                rest = _split(s[i:])
-                if rest is not None:
-                    return [prefix] + rest
-        return None
 
-    parts = _split(token)
-    if parts and len(parts) > 1:
-        return " ".join(parts)
-    return None
+def _parse_unit_token(token: str) -> tuple[str, int]:
+    """Return a unit name and its exponent, defaulting to one."""
+    match = _UNIT_TOKEN.fullmatch(token)
+    if match is None:
+        raise ValueError(f"Invalid unit token: '{token}'")
+    return match[1], int(match[2] or 1)
 
 
-_DIMENSIONLESS_ALIASES = {"-", "dimensionless", "ratio", "none", ""}
+def _format_unit_token(name: str, exponent: int) -> str:
+    return name if exponent == 1 else f"{name}{exponent}"
 
-def conv(value: Union[float, np.ndarray], from_unit: str, to_unit: str) -> Union[float, np.ndarray]:
-    """
-    Converts a value from one unit to another.
-    Supports both scalar values and numpy arrays.
-    """
-    # 1. Parse both to canonical form
-    c_from = Unit.from_string(from_unit)
-    c_to = Unit.from_string(to_unit)
-    
-    # 2. Validate dimensions match
-    if c_from.dims != c_to.dims:
-        raise ValueError(f"Incompatible units: '{from_unit}' {c_from.dims} vs '{to_unit}' {c_to.dims}")
-        
-    # 3. Calculate conversion
-    factor = c_from.scale / c_to.scale
-    return value * factor
+
+def conv(value: float | np.ndarray, from_unit: str, to_unit: str) -> float | np.ndarray:
+    """Convert a scalar or NumPy array between dimensionally compatible units."""
+    source = Unit.from_string(from_unit)
+    target = Unit.from_string(to_unit)
+    if source.dims != target.dims:
+        raise ValueError(
+            f"Incompatible units: '{from_unit}' {source.dims} "
+            f"vs '{to_unit}' {target.dims}"
+        )
+    return value * (source.scale / target.scale)
+
 
 def is_compatible(from_unit: str, to_unit: str) -> bool:
-    """
-    Checks if a conversion between two units is valid (i.e., they are dimensionally equivalent).
-    Returns True if valid, False otherwise.
-    Also returns False if units are malformed or unknown.
-    """
+    """Return whether dimensions match; malformed or unknown units return False."""
     try:
-        c_from = Unit.from_string(from_unit)
-        c_to = Unit.from_string(to_unit)
-        return c_from.dims == c_to.dims
+        return Unit.from_string(from_unit).dims == Unit.from_string(to_unit).dims
     except ValueError:
         return False
 
+
 def invert_unit(unit_str: str) -> str:
-    """
-    Inverts a unit string (e.g., "s" -> "s-1", "m2" -> "m-2").
-    Used for division.
-    """
-    tokens = unit_str.strip().split()
-    inverted_tokens = []
-    
-    pattern = re.compile(r"^([a-zA-Z]+)([-+]?\d+)?$")
-    
-    for token in tokens:
-        match = pattern.match(token)
-        if not match:
-             raise ValueError(f"Invalid unit token: '{token}'")
-             
-        unit_name = match.group(1)
-        exponent_str = match.group(2)
-        exponent = int(exponent_str) if exponent_str else 1
-        
-        new_exponent = -exponent
-        
-        if new_exponent == 1:
-            inverted_tokens.append(f"{unit_name}")
-        else:
-            inverted_tokens.append(f"{unit_name}{new_exponent}")
-            
-    return " ".join(inverted_tokens)
-
-def dims_to_si_unit(dims: Dict[str, int]) -> str:
-    """
-    Converts a dimensions dictionary to an SI base unit string.
-    
-    Examples:
-    - {L: 1} -> "m"
-    - {M: 1} -> "kg"
-    - {T: 1} -> "s"
-    - {M: 1, L: 1, T: -2} -> "kg m s-2"
-    
-    Args:
-        dims: Dictionary mapping dimension names to exponents
-        
-    Returns:
-        SI base unit string (space-separated tokens)
-    """
-    # Map dimension abbreviations to SI base unit names
-    dim_to_unit = {
-        'M': 'kg',  # Mass -> kilogram
-        'L': 'm',   # Length -> meter
-        'T': 's',   # Time -> second
-    }
-    
+    """Negate each token's exponent, checking syntax but not unit names."""
     tokens = []
-    
-    # Sort for consistent output
-    for dim in sorted(dims.keys()):
-        exp = dims[dim]
-        if dim not in dim_to_unit:
-            # Unknown dimension, skip (shouldn't happen in normal use)
-            continue
-        
-        unit = dim_to_unit[dim]
-        
-        if exp == 1:
-            tokens.append(unit)
-        else:
-            tokens.append(f"{unit}{exp}")
-    
-    # Return space-separated or empty string for dimensionless
-    return " ".join(tokens) if tokens else ""
+    for token in unit_str.split():
+        name, exponent = _parse_unit_token(token)
+        tokens.append(_format_unit_token(name, -exponent))
+    return " ".join(tokens)
 
+
+def dims_to_si_unit(dims: dict[str, int]) -> str:
+    """Format mass, length, and time dimensions in sorted-key order; ignore others."""
+    return " ".join(
+        _format_unit_token(_SI_UNITS[dimension], exponent)
+        for dimension, exponent in sorted(dims.items())
+        if dimension in _SI_UNITS
+    )
